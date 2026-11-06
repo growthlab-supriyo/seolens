@@ -1,0 +1,1060 @@
+{
+ "ISSUES": {
+  "Page fetch failed": [
+   "Critical",
+   "The URL could not be reached (DNS, SSL, timeout or redirect loop). Check the URL and server."
+  ],
+  "Page not returning 200": [
+   "Critical",
+   "Fix or 301-redirect broken pages (4xx/5xx) and update internal links that point to them."
+  ],
+  "Page is noindex": [
+   "Critical",
+   "Remove the noindex directive (meta robots or X-Robots-Tag) if this page should rank."
+  ],
+  "Missing meta title": [
+   "High",
+   "Add a unique, descriptive <title> (30-60 characters) that describes the page."
+  ],
+  "Missing meta description": [
+   "High",
+   "Write a unique meta description (70-160 characters) that earns the click."
+  ],
+  "Missing H1": [
+   "High",
+   "Add one H1 that clearly states the page topic."
+  ],
+  "Missing canonical": [
+   "High",
+   "Add a self-referencing canonical tag to consolidate duplicate URL versions."
+  ],
+  "Canonical points to another URL": [
+   "High",
+   "Confirm this is intended; otherwise point the canonical to the page itself."
+  ],
+  "Redirect chain (2+ hops)": [
+   "High",
+   "Redirect straight to the final URL and update internal links."
+  ],
+  "Thin content": [
+   "High",
+   "Expand pages under 300 words with useful, unique content that matches search intent."
+  ],
+  "Duplicate meta title": [
+   "High",
+   "Give every page a unique title."
+  ],
+  "Duplicate content": [
+   "High",
+   "Consolidate identical pages with 301s or canonicals, or rewrite them."
+  ],
+  "Content may depend on JavaScript": [
+   "High",
+   "Main content is missing from the raw HTML. Use server-side rendering or pre-rendering."
+  ],
+  "Missing viewport meta tag": [
+   "High",
+   "Add <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"> for mobile."
+  ],
+  "URL redirects": [
+   "Medium",
+   "Update internal links and the sitemap to point to the final URL."
+  ],
+  "Title length out of range": [
+   "Medium",
+   "Keep titles between 30 and 60 characters so they don't get cut off."
+  ],
+  "Description length out of range": [
+   "Medium",
+   "Keep meta descriptions between 70 and 160 characters."
+  ],
+  "Multiple H1 tags": [
+   "Medium",
+   "Keep one H1 per page; use H2/H3 for subsections."
+  ],
+  "Multiple title tags": [
+   "Medium",
+   "Remove duplicate <title> tags (often theme + SEO plugin both output one)."
+  ],
+  "Multiple canonical tags": [
+   "Medium",
+   "Output a single canonical tag; conflicting canonicals get ignored."
+  ],
+  "Duplicate meta description": [
+   "Medium",
+   "Write a unique description for each page."
+  ],
+  "Heading levels skipped": [
+   "Medium",
+   "Use headings in order (H1 > H2 > H3) for clear structure and accessibility."
+  ],
+  "Images missing alt text": [
+   "Medium",
+   "Add descriptive alt text to meaningful images."
+  ],
+  "Images missing width/height": [
+   "Medium",
+   "Set width and height on images to prevent layout shift (CLS)."
+  ],
+  "No structured data": [
+   "Medium",
+   "Add relevant schema (Organization, BreadcrumbList, Article, Product, LocalBusiness...)."
+  ],
+  "Structured data has errors": [
+   "Medium",
+   "Fix JSON-LD syntax errors; invalid blocks are ignored by Google."
+  ],
+  "Structured data missing key properties": [
+   "Medium",
+   "Complete the schema properties listed in the 'Schema Missing Properties' column."
+  ],
+  "Incomplete Open Graph tags": [
+   "Medium",
+   "Add og:title, og:description, og:image and og:url for better social previews."
+  ],
+  "Missing html lang attribute": [
+   "Medium",
+   "Declare the page language, e.g. <html lang=\"en\">."
+  ],
+  "og:locale doesn't match HTML lang": [
+   "Low",
+   "Set og:locale to the page language (e.g. bn_BD for <html lang=\"bn-BD\">) so social networks show the right language."
+  ],
+  "High performance risk": [
+   "Medium",
+   "Reduce page weight, scripts and third-party tags; confirm with PageSpeed Insights."
+  ],
+  "Render-blocking scripts in head": [
+   "Medium",
+   "Add async/defer to non-critical scripts in <head>."
+  ],
+  "Internal links using http://": [
+   "Medium",
+   "Update internal links to https:// to avoid redirects."
+  ],
+  "No analytics detected": [
+   "Medium",
+   "No GA4/GTM or similar found in the HTML. Install analytics to measure traffic and leads."
+  ],
+  "Legacy Universal Analytics code": [
+   "Medium",
+   "Universal Analytics no longer collects data. Remove it and make sure GA4 is installed."
+  ],
+  "Thin archive page": [
+   "Medium",
+   "This tag, category, author or date archive lists only 1–2 posts, so it adds a thin page to Google's index. Noindex it, merge the tag into a bigger one, or add more posts and a short unique intro."
+  ],
+  "Search results page is indexable": [
+   "Medium",
+   "Internal search result pages should not be indexed (endless thin URLs). Add noindex to search results and don't link to them."
+  ],
+  "Heavy images": [
+   "Medium",
+   "Images of 200 KB or more slow the page down (LCP). Compress them, serve WebP/AVIF and size them to how they are shown (listed in the Heavy Images column)."
+  ],
+  "Placeholder text found": [
+   "Medium",
+   "Replace placeholder/demo text (Lorem ipsum, Sample Page, etc.)."
+  ],
+  "Relative canonical URL": [
+   "Low",
+   "Use an absolute canonical URL (https://...)."
+  ],
+  "No WebP/AVIF images": [
+   "Low",
+   "Serve images as WebP/AVIF to reduce page weight."
+  ],
+  "Generic anchor text": [
+   "Low",
+   "Replace 'click here' / 'read more' with descriptive anchor text."
+  ],
+  "target=_blank without noopener": [
+   "Low",
+   "Add rel=\"noopener\" to links that open in a new tab."
+  ],
+  "Split anchor links": [
+   "Low",
+   "One link was split into several <a> pieces by the editor (e.g. 'second-han' + 'd laptop'). Re-create it as a single link."
+  ],
+  "Conflicting dates": [
+   "Medium",
+   "Make the meta, schema, visible and sitemap dates agree (one source of truth in the SEO plugin/theme)."
+  ],
+  "Modified before published": [
+   "Medium",
+   "Fix the date logic: the modified date can't be earlier than the publish date (check plugin settings or imported data)."
+  ],
+  "Future date": [
+   "Medium",
+   "Correct dates set in the future (server time zone or scheduled-post settings)."
+  ],
+  "Date changes on every load": [
+   "Medium",
+   "Stop generating the modified date on every page load; only update it when the content really changes."
+  ],
+  "Title year newer than content": [
+   "Low",
+   "Update the content when the year in the title changes, or remove the year. Google compares the claim with real changes."
+  ],
+  "Dates missing from meta & schema": [
+   "Low",
+   "Output article:published_time / article:modified_time meta and datePublished / dateModified in Article schema."
+  ],
+  "Bot-check page instead of content": [
+   "High",
+   "The server answered with a bot check (firewall / CDN) instead of the page, even after a slower retry, so this page couldn't be audited. Allow the audit's user agent (SEOToolkitBot) in the firewall, or use Medium mode (the audit already retried slower and as a browser). Check in Search Console (URL Inspection) that Googlebot gets the real page."
+  ],
+  "Document-relative links": [
+   "Low",
+   "Some links are written relative to the current folder (e.g. href=\"page-2/\"). On the wrong folder they create endless URL variations; use root-relative (/page-2/) or absolute URLs."
+  ],
+  "Relative URL in hreflang or Open Graph": [
+   "Low",
+   "Write hreflang, og:url and og:image as full URLs (https://…); relative ones are ignored or misread."
+  ],
+  "Page with search traffic isn't indexable": [
+   "High",
+   "Google still sends visitors here (Search Console clicks), but the URL is broken, redirects, is noindex or canonicalised. Fix it, or 301-redirect it to the best working page."
+  ],
+  "URL format issues": [
+   "Low",
+   "Use short, lowercase URLs with hyphens: no underscores, spaces, double slashes, session IDs or long parameter strings. If you change a URL, 301-redirect the old one."
+  ],
+  "Title and H1 don't match": [
+   "Low",
+   "Make the title and the H1 describe the same topic, so Google and visitors see one clear promise."
+  ],
+  "Duplicate H1": [
+   "Medium",
+   "Give every page its own H1. Templates that repeat one H1 make pages look interchangeable."
+  ],
+  "Near-duplicate content": [
+   "Medium",
+   "Most of this text is the same as another page (see the Near Duplicate column). Merge them, add a canonical, or rewrite so each page has its own purpose."
+  ],
+  "Canonical points to a broken page": [
+   "High",
+   "The canonical URL doesn't load (4xx/5xx). Point the canonical to a working page, usually the page itself."
+  ],
+  "Canonical points to a redirect": [
+   "Medium",
+   "Point the canonical straight to the final URL, not to a URL that redirects."
+  ],
+  "Canonical points to a noindex page": [
+   "High",
+   "The canonical target is noindex, so neither page may be indexed. Point the canonical to an indexable page."
+  ],
+  "Canonical chain": [
+   "Medium",
+   "The canonical target has its own canonical to a third URL. Point every page straight to the final URL."
+  ],
+  "Missing hreflang (other pages have it)": [
+   "Low",
+   "Add hreflang tags (with a self-reference) if this page has a version in another language; if it has none, this is fine."
+  ],
+  "Hreflang errors": [
+   "Medium",
+   "Fix the problems in the Hreflang Issues column: valid language codes, a self-reference, return links and working target pages."
+  ],
+  "Deep page (4+ clicks)": [
+   "Low",
+   "This page is 4+ clicks from the homepage. Link to it from a category, the menu or related pages so visitors and Google reach it faster."
+  ],
+  "Broken links on page": [
+   "High",
+   "Fix or remove links that return 404/410, a server error or don't load (each one is listed in the Broken Links tab)."
+  ],
+  "Orphan page": [
+   "Medium",
+   "No other audited page links here. Add links from related pages, categories or the menu so visitors and Google can find it."
+  ],
+  "Poor Core Web Vitals": [
+   "Medium",
+   "Real mobile users wait too long or see the layout jump. Improve the worst metric: LCP (hero image, server response), INP (less JavaScript), CLS (reserve space for images, ads and fonts). PageSpeed Insights shows the exact causes."
+  ],
+  "Core Web Vitals need improvement": [
+   "Low",
+   "Real-user LCP, INP or CLS is between Google's 'good' and 'poor' thresholds. Optimise the metric shown in amber."
+  ]
+ },
+ "SITE_BASIS": {
+  "Domain": "The domain most audited pages (status 200) are on.",
+  "Domains in this audit": "Counts the domains of the audited URLs. Warn = more than one: Site Health and the sitemap checks then cover only the main domain.",
+  "Homepage": "Fetches https://<domain>/ and follows redirects. Pass = final status 200. Fail = any other status or unreachable.",
+  "Caching (browser & CDN)": "Reads Cache-Control, ETag and CDN cache headers on the homepage, and fetches one CSS or JS file from it. Pass = that static file is cached 7+ days (max-age ≥ 604800) or marked immutable. Warn = shorter or no caching. Info = no file to test. HTML itself is often short-cached on purpose.",
+  "Homepage over http://": "Only when https:// is unreachable: fetches http://<domain>/. Warn = the site works only without HTTPS (the other checks then use http://).",
+  "SSL certificate": "HTTPS homepage fetched with certificate validation on. Pass = loads. Fail = SSL/certificate/handshake error. Expiry date can't be read.",
+  "HTTP → HTTPS redirect": "Requests http://<domain>/. Pass = 301/308 to https. Warn = 302/307 (temporary). Fail = http page loads without redirecting.",
+  "www / non-www": "Requests the other host (with/without www) over HTTPS. Pass = 301/308 to the main host. Warn = temporary redirect, other destination or not loading. Fail = both return 200.",
+  "robots.txt": "Requests /robots.txt. Pass = 200 plain text. Fail = missing, error, or an HTML page returned instead.",
+  "robots.txt sitewide block": "Applies the Googlebot (else *) rules with Google's longest-match rule to '/' and a random path. Fail = both blocked.",
+  "Audited URLs blocked by robots.txt": "Each audited URL path tested against the Googlebot (else *) rules. Pass = none blocked. Fail = 1 or more.",
+  "Sitemap declared in robots.txt": "Pass = robots.txt has at least one 'Sitemap:' line. Warn = none.",
+  "XML sitemap": "Tries robots.txt sitemaps, then /sitemap.xml, /sitemap_index.xml, /wp-sitemap.xml. Pass = valid urlset or sitemap index (up to 25 child sitemaps read). Fail = none found.",
+  "Sitemap URL count": "Unique <loc> URLs in the sitemaps read. Information only.",
+  "Sitemap freshness": "Newest <lastmod> in the sitemaps. Pass = within 180 days. Warn = older. Info = no lastmod dates.",
+  "Indexable pages missing from sitemap": "Audited pages with Indexable = Yes that aren't in the sitemap (case and trailing slash ignored). Pass = 10% or fewer missing. Warn = more than 10%.",
+  "Non-indexable URLs in sitemap": "Audited URLs that redirect, don't return 200, are noindex or canonicalised elsewhere, but are listed in the sitemap. Pass = none. Warn = 1 or more.",
+  "404 handling": "Requests a random URL that can't exist. Pass = 404/410. Warn = redirect or another code. Fail = 200 (soft 404).",
+  "HSTS header": "Pass = Strict-Transport-Security header on the homepage response. Warn = missing.",
+  "Content-Security-Policy header": "Pass = Content-Security-Policy header on the homepage response. Warn = missing.",
+  "Mixed content (homepage)": "On an HTTPS homepage, counts src/srcset values and stylesheets loaded over http://. Pass = 0. Warn = 1 or more.",
+  "Server / CDN": "Server header plus CDN headers (cf-ray, x-amz-cf-id, x-served-by/via, x-vercel-id, x-nf-request-id, Akamai). Information only.",
+  "CMS / Platform": "Fingerprints in the homepage HTML (e.g. wp-content/, cdn.shopify.com) and the generator meta tag. Information only.",
+  "Analytics & tags (homepage)": "Looks for GA4/GTM IDs and Clarity, HubSpot, Matomo, Plausible, Adobe Analytics, Segment scripts. Pass = at least one. Warn = none.",
+  "Favicon": "Pass = <link rel=icon> on the homepage, or /favicon.ico returns an image. Warn = neither.",
+  "Bulk date updates": "Audited pages (no redirect, status 200) with both a published and a modified date; needs 5+. Warn = 60%+ share the same modified day that differs from their publish day. Pass = below 60%.",
+  "Broken internal links": "Every link on every audited page (content, menus, footer). Targets that were crawled use their Page Wise Audit status; up to 1500 others (over the page limit, files, ? URLs) are fetched once. Broken = 404/410, 5xx or doesn't load. Pass = none. Warn = 1–9 URLs. Fail = 10+.",
+  "Broken external links": "Up to 500 unique external URLs (most linked first), fetched once each with redirects followed. Broken = 404/410, 5xx or the domain doesn't exist. 401/403/429 count as 'couldn't verify', not broken. Pass = none. Warn = 1+.",
+  "Internal links to redirects": "Internal links whose target answers 3xx. Pass = none. Warn = 1+ (each extra hop wastes crawl budget and slows users).",
+  "Links not verified": "Links that answered 401/403/429/999 or timed out: many sites block automated checks. Information only: open them in a browser.",
+  "Orphan pages": "Indexable audited pages that no other audited page links to (menus and footers count; the homepage is the entry point). Needs a Domain / Directory audit with 'Follow links'. Pass = none. Warn = 1+. Info = the crawl hit the page limit, so they're only 'possible'.",
+  "Core Web Vitals (whole site)": "Google's Chrome UX Report (CrUX): real Chrome users on mobile, last 28 days, 75th percentile, for the whole origin. Good = LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1; Poor = LCP > 4 s, INP > 500 ms, CLS > 0.25; the worst metric decides. Pass = Good. Warn = Needs improvement. Fail = Poor. Same data as Search Console's Core Web Vitals report.",
+  "Internal links to noindex or canonicalised pages": "Links (content, menus, footer) to audited pages that return 200 but are noindex or point their canonical elsewhere. Pass = none. Warn = 1+. Each one is listed in the Broken Links tab.",
+  "Click depth": "Clicks from the homepage (or the folder's start URL) along the links found while crawling, menus and footers included. Needs a Domain / Directory audit with 'Follow links'. Information only: indexable pages 4+ clicks deep get 'Deep page' in Page Wise Audit.",
+  "Search Console + GA4 data": "Optional (Settings). Search Console clicks, impressions, CTR and position and GA4 sessions per audited URL, for the last 28 full days ending 3 days ago. Warn = URLs that still get search clicks but are broken, redirect, are noindex or canonicalised, or indexable pages with no impressions at all. URLs with no impressions are named, with the reason when they aren't meant to rank.",
+  "Canonical targets": "Every page whose canonical points to another URL is listed. The target must return 200 without redirecting, be indexable and keep its own canonical; targets outside the audit are fetched once each (up to 60). Pass = all targets fine (or every canonical is self-referencing). Warn = 1+ broken, redirecting, noindex or chained canonical. Info = some targets couldn't be verified.",
+  "Hreflang": "Every hreflang link on audited pages: valid ISO codes (en, en-GB, x-default), a self-reference, no code used for two URLs, and a working indexable alternate that links back (alternates outside the audit are fetched once each). Pages without hreflang are flagged when other audited pages have it. Pass = no errors and every page has hreflang. Warn = 1+ page with errors or without hreflang.",
+  "Near-duplicate pages": "Indexable pages with 100+ words of own content (menus and footer removed), compared by fingerprints of their 3-word phrases. Near-duplicate = about 80%+ of phrases the same (exact copies are in Duplicate Content). Pass = none. Warn = 1+.",
+  "Core Web Vitals (pages)": "CrUX for each indexable page (same thresholds). Pages with too little Chrome traffic show the whole-site value and are not penalised. Information only: each page with Poor or Needs-improvement data gets the issue (and the score) in the Page Wise Audit tab."
+ },
+ "AUDIT_PARAMETERS": [
+  [
+   "Status & redirects",
+   [
+    "HTTP status code",
+    "Redirect hops and full chain",
+    "Final URL",
+    "Fetch errors (DNS, SSL, timeout, loops)",
+    "Content-Type",
+    "Cache-Control header",
+    "Compression",
+    "URL format (uppercase, underscores, spaces, double slashes, session IDs, 4+ parameters, 115+ characters)"
+   ]
+  ],
+  [
+   "Indexability",
+   [
+    "Meta robots / googlebot",
+    "X-Robots-Tag header",
+    "Canonical (self, elsewhere, multiple, relative)",
+    "Canonical target (broken, redirecting, noindex, chained)",
+    "Redirecting URLs",
+    "robots.txt blocking"
+   ]
+  ],
+  [
+   "Meta & head",
+   [
+    "Title (length, count, duplicates)",
+    "Meta description (length, duplicates)",
+    "Title vs H1 match",
+    "Viewport",
+    "HTML lang",
+    "og:locale (matches HTML lang)",
+    "Hreflang (codes, self-reference, return links, targets)",
+    "Open Graph",
+    "Twitter Card"
+   ]
+  ],
+  [
+   "Headings & content",
+   [
+    "H1 (count, text)",
+    "H2 / H3 in main content",
+    "Heading hierarchy (header, menus, footer and sidebars ignored)",
+    "Word count / thin content (header, menus, footer and sidebars not counted)",
+    "Thin tag, category, author and date archives",
+    "Duplicate content (page content only, without menus and footer)",
+    "Near-duplicate content (80%+ the same)",
+    "Duplicate H1",
+    "Placeholder text"
+   ]
+  ],
+  [
+   "Images",
+   [
+    "Missing alt text (main content)",
+    "Heavy images (200 KB+, file size measured)",
+    "Empty alt",
+    "Missing width/height",
+    "Lazy loading",
+    "WebP / AVIF usage"
+   ]
+  ],
+  [
+   "Links",
+   [
+    "Internal and external links",
+    "Contextual links in main content (paragraphs, lists, tables, headings, image links)",
+    "Split anchor links",
+    "Nofollow / sponsored / UGC",
+    "Generic anchors",
+    "_blank without noopener",
+    "Internal http:// links",
+    "Broken links (internal + up to 500 external)",
+    "Links to redirects",
+    "Links to noindex or canonicalised pages",
+    "Orphan pages",
+    "Pages linking to each page (Linked From)",
+    "Click depth from the homepage",
+    "Link Score (internal PageRank)",
+    "Link URL types (absolute, root-relative, relative)"
+   ]
+  ],
+  [
+   "Optional APIs",
+   [
+    "Search Console clicks, impressions, CTR, position (28 days)",
+    "GA4 sessions (28 days)",
+    "URLs with search traffic that aren't indexable",
+    "Core Web Vitals (CrUX)"
+   ]
+  ],
+  [
+   "Performance signals",
+   [
+    "HTML size",
+    "Script count",
+    "Render-blocking scripts (names)",
+    "Stylesheets",
+    "Inline JS/CSS size",
+    "Third-party domains and resource hints",
+    "DOM size",
+    "Core Web Vitals from real Chrome users: LCP, INP, CLS (CrUX, mobile, optional: needs a free API key)"
+   ]
+  ],
+  [
+   "Tech & tracking",
+   [
+    "CMS / platform",
+    "Analytics, tags and pixels",
+    "Consent banner",
+    "JavaScript-rendering risk"
+   ]
+  ],
+  [
+   "Structured data",
+   [
+    "Schema types (JSON-LD and microdata)",
+    "Schema parse errors",
+    "Missing key properties",
+    "Breadcrumbs"
+   ]
+  ],
+  [
+   "Trust & dates",
+   [
+    "Author name (blog posts, guides and news only)",
+    "Published / modified dates from meta, schema, time tags, header and sitemap",
+    "Date conflicts and freshness signals",
+    "Contact signals"
+   ]
+  ],
+  [
+   "Site-wide",
+   [
+    "Homepage and SSL",
+    "HTTP → HTTPS",
+    "www / non-www",
+    "robots.txt",
+    "XML sitemap (count, freshness, coverage)",
+    "404 handling",
+    "Caching (browser & CDN)",
+    "HSTS and CSP headers",
+    "Mixed content",
+    "Server / CDN",
+    "Favicon",
+    "Bulk date updates"
+   ]
+  ]
+ ],
+ "SCHEMA_RULES": {
+  "Organization": [
+   "name",
+   "logo",
+   "url"
+  ],
+  "LocalBusiness": [
+   "name",
+   "address",
+   "telephone",
+   "openingHoursSpecification|openingHours",
+   "geo|hasMap",
+   "url"
+  ],
+  "Product": [
+   "name",
+   "image",
+   "offers|review|aggregateRating",
+   "description",
+   "sku|gtin|gtin8|gtin12|gtin13|gtin14|mpn",
+   "brand"
+  ],
+  "Offer": [
+   "price|priceSpecification|lowPrice",
+   "priceCurrency|priceSpecification",
+   "availability"
+  ],
+  "Article": [
+   "headline",
+   "author",
+   "datePublished",
+   "dateModified",
+   "image",
+   "publisher"
+  ],
+  "BlogPosting": [
+   "headline",
+   "author",
+   "datePublished",
+   "dateModified",
+   "image",
+   "publisher"
+  ],
+  "NewsArticle": [
+   "headline",
+   "author",
+   "datePublished",
+   "dateModified",
+   "image",
+   "publisher"
+  ],
+  "Course": [
+   "name",
+   "description",
+   "provider"
+  ],
+  "Service": [
+   "name|serviceType",
+   "provider",
+   "areaServed"
+  ],
+  "SoftwareApplication": [
+   "name",
+   "offers",
+   "applicationCategory",
+   "operatingSystem"
+  ],
+  "BreadcrumbList": [
+   "itemListElement"
+  ],
+  "FAQPage": [
+   "mainEntity"
+  ],
+  "Event": [
+   "name",
+   "startDate",
+   "location"
+  ],
+  "Review": [
+   "author",
+   "reviewRating"
+  ],
+  "AggregateRating": [
+   "ratingValue",
+   "reviewCount|ratingCount"
+  ],
+  "WebSite": [
+   "name",
+   "url"
+  ],
+  "VideoObject": [
+   "name",
+   "thumbnailUrl",
+   "uploadDate"
+  ],
+  "JobPosting": [
+   "title",
+   "datePosted",
+   "hiringOrganization"
+  ],
+  "Recipe": [
+   "name",
+   "image"
+  ]
+ },
+ "LOCAL_BUSINESS_TYPES": {
+  "source": "^(LocalBusiness|Store|Restaurant|CafeOrCoffeeShop|Bakery|BarOrPub|FoodEstablishment|Dentist|Physician|MedicalClinic|MedicalBusiness|Hospital|Pharmacy|Optician|LegalService|Attorney|Notary|AccountingService|FinancialService|InsuranceAgency|RealEstateAgent|AutoRepair|AutoDealer|AutomotiveBusiness|BeautySalon|HairSalon|DaySpa|HealthAndBeautyBusiness|HealthClub|SportsActivityLocation|Hotel|LodgingBusiness|HomeAndConstructionBusiness|Plumber|Electrician|HVACBusiness|RoofingContractor|GeneralContractor|HousePainter|Locksmith|MovingCompany|ChildCare|ProfessionalService|TravelAgency|EmploymentAgency|ShoppingCenter|ClothingStore|ElectronicsStore|FurnitureStore|GroceryStore|HardwareStore|JewelryStore|PetStore|ShoeStore|SportingGoodsStore|ToyStore|BookStore|Florist|VeterinaryCare|GasStation|LibrarySystem|EntertainmentBusiness)$",
+  "flags": ""
+ },
+ "TECH_RULES": [
+  [
+   "CMS",
+   "WordPress",
+   {
+    "source": "wp-content\\/|wp-includes\\/|wp-json",
+    "flags": "i"
+   },
+   {
+    "source": "wordpress_|wp-settings|x-pingback",
+    "flags": "i"
+   }
+  ],
+  [
+   "CMS",
+   "Shopify",
+   {
+    "source": "cdn\\.shopify\\.com|Shopify\\.theme",
+    "flags": "i"
+   },
+   {
+    "source": "x-shopify|_shopify_",
+    "flags": "i"
+   }
+  ],
+  [
+   "CMS",
+   "Wix",
+   {
+    "source": "static\\.wixstatic\\.com|wix-warmup-data",
+    "flags": "i"
+   },
+   {
+    "source": "x-wix-",
+    "flags": "i"
+   }
+  ],
+  [
+   "CMS",
+   "Squarespace",
+   {
+    "source": "static1\\.squarespace\\.com|SQUARESPACE_CONTEXT",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "CMS",
+   "Webflow",
+   {
+    "source": "data-wf-page|data-wf-site",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "CMS",
+   "Drupal",
+   {
+    "source": "drupal-settings-json|Drupal\\.settings|\\/sites\\/default\\/files",
+    "flags": "i"
+   },
+   {
+    "source": "x-drupal|x-generator: drupal",
+    "flags": "i"
+   }
+  ],
+  [
+   "CMS",
+   "Joomla",
+   {
+    "source": "\\/media\\/jui\\/|\\/media\\/system\\/js\\/|option=com_",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "CMS",
+   "Ghost",
+   {
+    "source": "ghost-(?:portal|sdk)|content=\"Ghost",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "CMS",
+   "HubSpot CMS",
+   {
+    "source": "hs_cos_wrapper|hs-sites\\.com",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "CMS",
+   "Framer",
+   {
+    "source": "framerusercontent\\.com",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "CMS",
+   "Blogger",
+   {
+    "source": "blogger\\.com\\/static|\\.blogspot\\.com",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "E-commerce",
+   "WooCommerce",
+   {
+    "source": "woocommerce",
+    "flags": "i"
+   },
+   {
+    "source": "woocommerce_",
+    "flags": "i"
+   }
+  ],
+  [
+   "E-commerce",
+   "Magento",
+   {
+    "source": "text\\/x-magento-init|Magento_",
+    "flags": "i"
+   },
+   {
+    "source": "x-magento|mage-cache",
+    "flags": "i"
+   }
+  ],
+  [
+   "E-commerce",
+   "BigCommerce",
+   {
+    "source": "cdn\\d*\\.bigcommerce\\.com",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "E-commerce",
+   "PrestaShop",
+   {
+    "source": "prestashop|\\/modules\\/ps_",
+    "flags": "i"
+   },
+   {
+    "source": "PrestaShop-",
+    "flags": "i"
+   }
+  ],
+  [
+   "E-commerce",
+   "OpenCart",
+   {
+    "source": "route=product\\/|catalog\\/view\\/theme",
+    "flags": "i"
+   },
+   {
+    "source": "OCSESSID",
+    "flags": "i"
+   }
+  ],
+  [
+   "Page builder",
+   "Elementor",
+   {
+    "source": "elementor",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Page builder",
+   "Divi",
+   {
+    "source": "et_pb_|\\/themes\\/Divi\\/",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Page builder",
+   "WPBakery",
+   {
+    "source": "vc_row|js_composer",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Page builder",
+   "Gutenberg blocks",
+   {
+    "source": "wp-block-",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Page builder",
+   "Beaver Builder",
+   {
+    "source": "fl-builder",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "SEO plugin",
+   "Yoast SEO",
+   {
+    "source": "yoast-schema-graph|yoast",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "SEO plugin",
+   "Rank Math",
+   {
+    "source": "rank-math|rankmath",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "SEO plugin",
+   "All in One SEO",
+   {
+    "source": "aioseo",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Framework",
+   "Laravel",
+   {
+    "source": "laravel|livewire",
+    "flags": "i"
+   },
+   {
+    "source": "laravel_session|XSRF-TOKEN=eyJpdiI|=eyJpdiI6",
+    "flags": "i"
+   }
+  ],
+  [
+   "Framework",
+   "Next.js",
+   {
+    "source": "__NEXT_DATA__|\\/_next\\/static",
+    "flags": "i"
+   },
+   {
+    "source": "x-nextjs",
+    "flags": "i"
+   }
+  ],
+  [
+   "Framework",
+   "Nuxt",
+   {
+    "source": "__NUXT__|\\/_nuxt\\/",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Framework",
+   "Gatsby",
+   {
+    "source": "___gatsby",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Framework",
+   "Angular",
+   {
+    "source": "ng-version=|ng-app",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Framework",
+   "React",
+   {
+    "source": "data-reactroot|react-dom|__REACT",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Framework",
+   "Vue.js",
+   {
+    "source": "data-v-[0-9a-f]{6,}|vue(\\.min)?\\.js|__VUE",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Framework",
+   "Svelte",
+   {
+    "source": "svelte-[a-z0-9]{5,}",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "Framework",
+   "ASP.NET",
+   {
+    "source": "__VIEWSTATE|aspnetForm",
+    "flags": "i"
+   },
+   {
+    "source": "x-aspnet|ASP\\.NET_SessionId",
+    "flags": "i"
+   }
+  ],
+  [
+   "Framework",
+   "Django",
+   {
+    "source": "csrfmiddlewaretoken",
+    "flags": "i"
+   },
+   {
+    "source": "csrftoken=",
+    "flags": "i"
+   }
+  ],
+  [
+   "Framework",
+   "Ruby on Rails",
+   {
+    "source": "csrf-param\" content=\"authenticity_token",
+    "flags": "i"
+   },
+   {
+    "source": "_session_id=|x-runtime",
+    "flags": "i"
+   }
+  ],
+  [
+   "JavaScript",
+   "jQuery",
+   {
+    "source": "jquery[.-][\\d.]*(min\\.)?js|jquery\\.min\\.js",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "CSS",
+   "Bootstrap",
+   {
+    "source": "bootstrap(\\.min)?\\.(css|js)",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "CSS",
+   "Tailwind CSS",
+   {
+    "source": "tailwind|\\b(?:sm|md|lg):(?:flex|grid|block|hidden)\\b",
+    "flags": "i"
+   },
+   null
+  ],
+  [
+   "CSS",
+   "Font Awesome",
+   {
+    "source": "font-?awesome|fa-solid|fa-regular",
+    "flags": "i"
+   },
+   null
+  ]
+ ],
+ "KEY_PAGE_RE": {
+  "source": "(contact|pricing|plans?|quote|demo|book(ing)?|appointment|sign-?up|register|trial|checkout|enquir|inquir|get-started|subscribe|hire)",
+  "flags": "i"
+ },
+ "SITE_TYPES": {
+  "auto": {
+   "label": "Not sure / mixed (check everything)",
+   "contact": true
+  },
+  "ecommerce": {
+   "label": "Online store (e-commerce)",
+   "contact": true
+  },
+  "courses": {
+   "label": "Courses / education / bookings",
+   "contact": true
+  },
+  "local": {
+   "label": "Local business (shop, clinic, restaurant…)",
+   "contact": true
+  },
+  "service": {
+   "label": "Services / agency / corporate",
+   "contact": true
+  },
+  "saas": {
+   "label": "SaaS / app / software",
+   "contact": true
+  },
+  "blog": {
+   "label": "Blog / content site",
+   "contact": false
+  },
+  "news": {
+   "label": "News / magazine",
+   "contact": false
+  },
+  "portfolio": {
+   "label": "Portfolio / personal site",
+   "contact": true
+  }
+ },
+ "CONFIG": {
+  "INPUT_TAB": "On Page",
+  "AUDIT_TAB": "Page Wise Audit",
+  "SITE_TAB": "Site Health",
+  "SUMMARY_TAB": "Summary",
+  "QUEUE_TAB": "Discovered URLs",
+  "BROKEN_TAB": "Broken Links",
+  "CUSTOM_TAB": "Custom Extraction",
+  "STRUCTURE_TAB": "Internal Linking",
+  "OLD_STRUCTURE_TAB": "Site Structure",
+  "CHANGES_TAB": "Changes Since Last Audit",
+  "HISTORY_TAB": "_Audit History",
+  "THIN_ARCHIVE_POSTS": 2,
+  "HEAVY_IMAGE_KB": 200,
+  "MAX_IMAGE_CHECKS": 300,
+  "OUTSIDE_TARGET_MAX": 60,
+  "MAP_MAX_NODES": 400,
+  "MAX_CUSTOM_RULES": 5,
+  "DEEP_PAGE_CLICKS": 4,
+  "NEAR_DUP_SIMILARITY": 0.8,
+  "LINKS_TAB": "_Links",
+  "CHECKS_TAB": "_Checks",
+  "MAX_INTERNAL_CHECKS": 1500,
+  "MAX_EXTERNAL_CHECKS": 500,
+  "MAX_BROKEN_ROWS": 20000,
+  "CRUX_BATCH": 25,
+  "CRUX_GAP_MS": 11000,
+  "MAX_PAGES": 5550,
+  "MAX_QUEUE": 50000,
+  "MAX_DISCOVERY_SITEMAPS": 60,
+  "WRITE_EVERY": 25,
+  "BOT_TOKEN": "SEOToolkitBot",
+  "BOT_UA": "Mozilla/5.0 (compatible; SEOToolkitBot/1.0; on-page SEO audit)",
+  "MAX_RUNTIME_MS": 240000,
+  "INLINE_FINALIZE_MS": 210000,
+  "MAX_REDIRECTS": 5,
+  "MAX_CHILD_SITEMAPS": 25,
+  "THIN_CONTENT_WORDS": 300,
+  "TITLE_MIN": 30,
+  "TITLE_MAX": 60,
+  "DESC_MIN": 70,
+  "DESC_MAX": 160,
+  "CELL_LIMIT": 49000,
+  "USER_AGENT": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+ }
+}

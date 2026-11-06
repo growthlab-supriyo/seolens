@@ -1,0 +1,273 @@
+<!doctype html><html><head><title>Site Architecture Map</title><meta charset="utf-8">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  *{box-sizing:border-box} html,body{height:100%} body{display:flex;flex-direction:column;overflow:hidden;margin:0;font-family:Arial,sans-serif;font-size:12.5px;color:#202124;background:#fff}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid #e8eaed;background:#f8f9fa}
+  .bar button{border:1px solid #dadce0;background:#fff;border-radius:16px;padding:6px 12px;cursor:pointer;font-size:12.5px}
+  .bar button.on{background:#1a73e8;color:#fff;border-color:#1a73e8}
+  .bar input,.bar select{border:1px solid #dadce0;border-radius:6px;padding:6px 8px;font-size:12.5px}
+  .bar label{display:flex;gap:4px;align-items:center;color:#3c4043}
+  #stage{position:relative;flex:1;min-height:0;overflow:hidden} svg{width:100%;height:100%;display:block}
+  .tip{position:absolute;pointer-events:none;background:#202124;color:#fff;padding:7px 9px;border-radius:6px;font-size:12px;line-height:1.45;max-width:420px;display:none;z-index:5;word-break:break-all}
+  .legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 10px;border-top:1px solid #e8eaed;color:#5f6368;font-size:12px}
+  .sw{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-2px;margin-right:4px}
+  .msg{padding:30px;color:#5f6368;font-size:14px}
+  .lk{fill:none;stroke:#9aa0a6;stroke-opacity:.06} .lk.all{stroke-opacity:.25}
+  .lk.out{stroke:#1a73e8;stroke-opacity:.9;stroke-width:1.6px} .lk.in{stroke:#f29900;stroke-opacity:.9;stroke-width:1.6px} .lk.off{stroke-opacity:0}
+  .nd{cursor:pointer} .nd.dim{opacity:.15} .nd.hit circle{stroke:#202124;stroke-width:2.5px} .nd.sel text{font-weight:bold;fill:#202124}
+  .lbl{font-size:10.5px;fill:#3c4043;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round} .colh{font-size:12px;font-weight:bold;fill:#5f6368}
+  #side{position:absolute;top:0;right:0;bottom:0;width:310px;background:#fff;border-left:1px solid #e8eaed;overflow:auto;padding:10px 12px;display:none;z-index:4;font-size:12px;line-height:1.45}
+  #side h4{margin:12px 0 4px;font-size:12.5px} #side a{color:#1a73e8;text-decoration:none;cursor:pointer;display:block;padding:2px 0;word-break:break-all}
+  #side .x{float:right;cursor:pointer;color:#5f6368;font-size:16px;margin-left:8px} #side .note{color:#5f6368}
+</style></head><body>
+<div class="bar">
+  <button id="vGraph" class="on">🕸️ Link map by click depth</button><button id="vTree">🌳 Folder tree</button>
+  <select id="colorBy" title="What the circle colours show: how many clicks from the start page, which top-level folder, or how much internal link equity (Link Score)"><option value="d">Colour: click depth</option><option value="f">Colour: folder</option><option value="sc">Colour: Link Score</option></select>
+  <input id="q" placeholder="Find a URL… (Enter)" size="26" title="Type part of a URL (e.g. ugc-net) and press Enter: matching pages are outlined and the map moves to the first one">
+  <label id="allBox"><input type="checkbox" id="allLinks"> Show all links</label>
+  <span id="info" style="color:#5f6368"></span>
+</div>
+<div id="stage"><div class="msg" id="msg">Loading the audit…</div><div class="tip" id="tip"></div><div id="side"></div></div>
+<div class="legend" id="legend"></div>
+<div style="text-align:right;padding:2px 10px 6px;font-size:12px;color:#5f6368">Made with ❤️ by <a href="https://www.linkedin.com/in/s-mallick" target="_blank" rel="noopener" style="color:#1a73e8;text-decoration:none;font-weight:600">Supriyo Mallick</a></div>
+<script>
+  var data = null, view = "graph", refresh = function () {}, find = function () {};
+  var DEPTH = ["#1a73e8", "#34a853", "#a8c43b", "#fbbc04", "#f29900", "#ea4335"];
+  var folderScale = function () { return "#9aa0a6"; };
+  function depthColor(d) { return d < 0 ? "#9aa0a6" : DEPTH[Math.min(Math.round(d), 5)]; }
+  function topFolder(p) { return p.split("/").filter(Boolean)[0] || "/"; }
+  function fillFor(p, d, sc) {
+    var by = document.getElementById("colorBy").value;
+    if (by === "sc") return sc < 0 ? "#dadce0" : d3.interpolateYlGnBu(0.25 + sc / 133);
+    if (by === "f") return folderScale(topFolder(p));
+    return depthColor(d);
+  }
+  function dec(s) { try { return decodeURIComponent(s); } catch (e) { return s; } }
+  function shortName(p) { var s = p.split("/").filter(Boolean), t = s.length ? dec(s[s.length - 1]) : "/ (home)"; return t.length > 30 ? t.slice(0, 28) + "…" : t; }
+  function depthText(d) { return d < 0 ? "not reachable" : String(d); }
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+  function tipShow(ev, html) {
+    var t = document.getElementById("tip"), b = document.getElementById("stage").getBoundingClientRect();
+    t.innerHTML = html; t.style.display = "block";
+    t.style.left = Math.min(ev.clientX - b.left + 14, b.width - 330) + "px"; t.style.top = (ev.clientY - b.top + 12) + "px";
+  }
+  function tipHide() { document.getElementById("tip").style.display = "none"; }
+  function clear() { d3.select("#stage svg").remove(); document.getElementById("side").style.display = "none"; tipHide(); }
+  function legend() {
+    var by = document.getElementById("colorBy").value, h = "";
+    if (by === "d") h = ["0 (start page)", "1", "2", "3", "4", "5+"].map(function (t, i) { return '<span><span class="sw" style="background:' + DEPTH[i] + '"></span>' + t + "</span>"; }).join("") +
+      '<span><span class="sw" style="background:#9aa0a6"></span>not reachable</span>';
+    else if (by === "sc") h = "Darker = higher Link Score (more internal link equity)";
+    else h = "Colour = top-level folder";
+    if (view === "graph") h += " · one column per click depth · hover a page: <b style='color:#1a73e8'>blue = links it gives</b>, <b style='color:#f29900'>orange = links it gets</b> · click a page for the full list · red ring = orphan · scroll to zoom, drag to move";
+    else h += " · filled circle = a page at that URL, with its own click depth · hollow circle = folder only (no page at that URL) · click to open or close a folder · double-click to open the page";
+    document.getElementById("legend").innerHTML = h;
+  }
+  function info(t) { document.getElementById("info").textContent = t; }
+  function showInfo() {
+    info(data.nodes.length + " of " + data.total + " pages shown" + (data.nodes.length < data.total ? " (orphans, deep pages and highest Link Score first)" : "") +
+      " · " + data.links.length + " links · " + data.host);
+  }
+  function addZoom(svg, g) {
+    var z = d3.zoom().scaleExtent([0.1, 4]).on("zoom", function (e) { g.attr("transform", e.transform); });
+    svg.call(z).on("dblclick.zoom", null);
+    return z;
+  }
+
+  // ---- Link map: one column per click depth, pages sorted by URL so a section stays together.
+  function drawGraph() {
+    clear(); view = "graph"; legend(); showInfo();
+    document.getElementById("allBox").style.display = "";
+    var box = document.getElementById("stage").getBoundingClientRect(), W = box.width, H = box.height;
+    var nodes = data.nodes.map(function (n, i) { return Object.assign({ id: i, out: [], inn: [] }, n); });
+    data.links.forEach(function (l) { nodes[l[0]].out.push(l[1]); nodes[l[1]].inn.push(l[0]); });
+    folderScale = d3.scaleOrdinal(Array.from(new Set(nodes.map(function (n) { return topFolder(n.p); }))), d3.schemeTableau10.concat(d3.schemeSet3));
+    var depths = Array.from(new Set(nodes.map(function (n) { return n.d; }))).sort(function (a, b) { return ((a < 0) - (b < 0)) || a - b; });
+    var LEFT = 190, COLW = 260, ROWH = 20, TOP = 50, maxRows = 0, heads = [];
+    depths.forEach(function (d, ci) {
+      var col = nodes.filter(function (n) { return n.d === d; }).sort(function (a, b) { return a.p < b.p ? -1 : a.p > b.p ? 1 : 0; });
+      col.forEach(function (n, ri) { n.x = LEFT + ci * COLW; n.y = TOP + ri * ROWH; });
+      maxRows = Math.max(maxRows, col.length);
+      heads.push({ x: LEFT + ci * COLW, t: (d < 0 ? "Not reachable" : d === 0 ? "Depth 0 (start page)" : "Click depth " + d) + " · " + col.length + " page" + (col.length === 1 ? "" : "s") });
+    });
+    var links = data.links.map(function (l) { return { s: nodes[l[0]], t: nodes[l[1]] }; });
+    var svg = d3.select("#stage").append("svg"), defs = svg.append("defs");
+    [["aOut", "#1a73e8"], ["aIn", "#f29900"]].forEach(function (m) {
+      defs.append("marker").attr("id", m[0]).attr("viewBox", "0 0 10 10").attr("refX", 9).attr("refY", 5).attr("markerWidth", 7).attr("markerHeight", 7)
+        .attr("orient", "auto").append("path").attr("d", "M0,0L10,5L0,10z").attr("fill", m[1]);
+    });
+    var g = svg.append("g"), zoom = addZoom(svg, g);
+    g.append("g").selectAll("text").data(heads).join("text").attr("class", "colh").attr("x", function (h) { return h.x - 6; }).attr("y", 24).text(function (h) { return h.t; });
+    function linkPath(l) {
+      var sx = l.s.x, sy = l.s.y, tx = l.t.x, ty = l.t.y;
+      if (tx > sx) { var mx = (sx + tx) / 2; return "M" + (sx + 7) + "," + sy + "C" + mx + "," + sy + " " + mx + "," + ty + " " + (tx - 8) + "," + ty; }
+      // Links back up (or within a column) bow out to the left, so they don't cross the labels.
+      var bow = 30 + Math.min(150, Math.abs(sy - ty) * 0.12 + (sx - tx) * 0.12);
+      return "M" + (sx - 7) + "," + sy + "C" + (sx - bow) + "," + sy + " " + (tx - bow) + "," + ty + " " + (tx - 8) + "," + ty;
+    }
+    var lk = g.append("g").selectAll("path").data(links).join("path").attr("class", "lk").attr("d", linkPath);
+    var nd = g.append("g").selectAll("g").data(nodes).join("g").attr("class", "nd").attr("transform", function (n) { return "translate(" + n.x + "," + n.y + ")"; });
+    nd.append("circle").attr("r", function (n) { return 4 + Math.sqrt(n.sc) * 0.5; })
+      .attr("stroke", function (n) { return n.o ? "#d93025" : "#fff"; }).attr("stroke-width", function (n) { return n.o ? 2.5 : 1; });
+    nd.append("text").attr("class", "lbl").attr("x", 11).attr("dy", "0.33em").text(function (n) { return shortName(n.p); });
+    var sel = null;
+    function focus(n) {
+      if (!n) {
+        nd.classed("dim", false).classed("sel", false);
+        lk.attr("class", document.getElementById("allLinks").checked ? "lk all" : "lk").attr("marker-end", null);
+        return;
+      }
+      var near = new Set([n.id].concat(n.out, n.inn));
+      nd.classed("dim", function (m) { return !near.has(m.id); }).classed("sel", function (m) { return m.id === n.id; });
+      lk.attr("class", function (l) { return "lk " + (l.s === n ? "out" : l.t === n ? "in" : "off"); })
+        .attr("marker-end", function (l) { return l.s === n ? "url(#aOut)" : l.t === n ? "url(#aIn)" : null; });
+      lk.filter(function (l) { return l.s === n || l.t === n; }).raise();
+    }
+    function list(ids, title, color) {
+      var rows = ids.slice().sort(function (a, b) { return nodes[a].d - nodes[b].d || (nodes[a].p < nodes[b].p ? -1 : 1); }).map(function (id) {
+        return '<a data-id="' + id + '">' + esc(dec(nodes[id].p)) + ' <span class="note">· depth ' + depthText(nodes[id].d) + "</span></a>";
+      }).join("");
+      return '<h4 style="color:' + color + '">' + title + " (" + ids.length + ")</h4>" + (rows || '<div class="note">None of the pages shown</div>');
+    }
+    function side(n) {
+      var el = document.getElementById("side");
+      if (!n) { el.style.display = "none"; return; }
+      el.innerHTML = '<span class="x" id="sx">✕</span><b style="word-break:break-all">' + esc(dec(n.p)) + "</b><br>Click depth: " + depthText(n.d) +
+        " · Linked from " + n.inl + " page(s) · Link Score " + n.sc + (n.o ? '<br><span style="color:#d93025">⚠ Orphan page</span>' : "") +
+        (n.ix ? "" : "<br>Not indexable") + '<br><a href="' + esc(n.u) + '" target="_blank" style="display:inline">Open the page ↗</a>' +
+        list(n.out, "→ Links to", "#1a73e8") + list(n.inn, "← Linked from", "#f29900") +
+        (n.inn.length < n.inl ? '<div class="note" style="margin-top:6px">' + (n.inl - n.inn.length) + " more linking page(s) aren't drawn on this map (see the Linked From (pages) column).</div>" : "");
+      el.style.display = "block";
+      el.querySelectorAll("a[data-id]").forEach(function (a) { a.onclick = function () { pick(nodes[+this.getAttribute("data-id")], true); }; });
+      document.getElementById("sx").onclick = function () { pick(null); };
+    }
+    function pick(n, move) {
+      sel = n; focus(n); side(n);
+      if (n && move) svg.transition().duration(400).call(zoom.translateTo, n.x + 140, n.y);
+    }
+    nd.on("mouseover", function (ev, n) {
+        if (!sel) focus(n);
+        tipShow(ev, "<b>" + esc(dec(n.p)) + "</b><br>Click depth: " + depthText(n.d) + " · links to " + n.out.length + " · linked from " + n.inl + " page(s) · Link Score " + n.sc +
+          (n.c ? " · Search clicks: " + n.c : "") + (n.o ? "<br>⚠ Orphan page" : "") + (n.ix ? "" : "<br>Not indexable") + "<br><i>Click for the full list</i>");
+      })
+      .on("mouseout", function () { tipHide(); if (!sel) focus(null); })
+      .on("click", function (ev, n) { ev.stopPropagation(); pick(n); })
+      .on("dblclick", function (ev, n) { window.open(n.u, "_blank"); });
+    svg.on("click", function () { pick(null); nd.classed("hit", false); });
+    refresh = function () { nd.select("circle").attr("fill", function (n) { return fillFor(n.p, n.d, n.sc); }); };
+    refresh();
+    focus(null);
+    // Fit when possible, but never so small that the names can't be read (then drag or scroll to see the rest).
+    var cw = LEFT + depths.length * COLW + 40, ch = TOP + maxRows * ROWH + 20, k = Math.max(0.7, Math.min(1, W / cw, H / ch));
+    svg.call(zoom.transform, d3.zoomIdentity.translate(Math.max(-LEFT * k + 40, (W - cw * k) / 2), ch * k < H ? (H - ch * k) / 3 : 0).scale(k));
+    document.getElementById("allLinks").onchange = function () { if (!sel) focus(null); };
+    find = function (q) {
+      var hits = nodes.filter(function (n) { return n.u.toLowerCase().indexOf(q) !== -1 || dec(n.p).toLowerCase().indexOf(q) !== -1; });
+      nd.classed("hit", function (n) { return hits.indexOf(n) !== -1; });
+      info(hits.length ? hits.length + " page(s) match – the first is selected" : "No page on the map matches \"" + q + "\"");
+      if (hits.length) pick(hits[0], true);
+    };
+  }
+
+  // ---- Folder tree: every folder level, with the click depth of the page at each URL.
+  function drawTree() {
+    clear(); view = "tree"; legend(); showInfo();
+    document.getElementById("allBox").style.display = "none";
+    // A folder with no page of its own and a single sub-folder is drawn as one node ("category/teaching-exams-bn"),
+    // so a directory audit doesn't start with a row of empty folders.
+    function squash(n, path, isRoot) {
+      var parts = [];
+      path = isRoot ? "/" : path + n.name + "/";
+      while (!n.s && !n.more && n.children && n.children.length === 1) {
+        if (!isRoot || parts.length) parts.push(n.name);
+        n = n.children[0]; path += n.name + "/";
+        if (isRoot && !parts.length) parts.push("");
+      }
+      if (!isRoot || parts.length) parts.push(n.name);
+      var shown = isRoot ? (parts.length ? "/" + parts.filter(Boolean).join("/") + "/" : "/ (home)") : parts.join("/");
+      return Object.assign({}, n, { shown: shown, path: isRoot && !parts.length ? "/" : path,
+        children: (n.children || []).map(function (c) { return squash(c, isRoot && !parts.length ? "/" : path, false); }) });
+    }
+    var root = d3.hierarchy(squash(data.tree, "", true));
+    folderScale = d3.scaleOrdinal((data.tree.children || []).map(function (c) { return c.name; }).concat(["/"]), d3.schemeTableau10.concat(d3.schemeSet3));
+    var big = root.descendants().length > 150;
+    root.descendants().forEach(function (d) { if (big && d.depth >= 2 && d.children) { d._children = d.children; d.children = null; } });
+    var svg = d3.select("#stage").append("svg"), g = svg.append("g"), zoom = addZoom(svg, g);
+    function pathOf(d) { return d.data.path; }
+    function kidsOf(d) { return d.children || d._children || []; }
+    function label(d) {
+      var s = d.data.s, t = dec(d.data.shown);
+      if (t.length > 44) t = "…" + t.slice(-42);
+      if (s) t += " · depth " + depthText(s.d) + (s.d === 0 ? " (start page)" : "");
+      if (d._children) t += "  (" + d.data.n + " pages) ▸";
+      return t;
+    }
+    // Second line under an open folder: how many pages it holds and how deep they are on average.
+    function folderLine(d) {
+      return d.data.n + " pages · avg depth " + (d.data.d >= 0 ? d.data.d : "n/a") + (d.data.more ? " · +" + d.data.more + " more folders not drawn" : "");
+    }
+    function tip(ev, d) {
+      var s = d.data.s, h = "<b>" + esc(dec(pathOf(d))) + "</b><br>";
+      h += s ? "This page: click depth " + depthText(s.d) + " · linked from " + s.inl + " page(s) · Link Score " + s.sc + (s.o ? " · ⚠ orphan" : "") + (s.ix ? "" : " · not indexable")
+        : "No audited page at this exact URL (folder only)";
+      if (kidsOf(d).length) h += "<br>Folder: " + d.data.n + " page(s) · average click depth " + (d.data.d < 0 ? "n/a" : d.data.d);
+      tipShow(ev, h + (s ? "<br><i>Double-click to open the page</i>" : ""));
+    }
+    function update() {
+      d3.tree().nodeSize([26, 300])(root);
+      var minX = d3.min(root.descendants(), function (d) { return d.x; });
+      g.selectAll("*").remove();
+      g.append("g").selectAll("path").data(root.links()).join("path").attr("fill", "none").attr("stroke", "#c0c4c9")
+        .attr("d", d3.linkHorizontal().x(function (d) { return d.y; }).y(function (d) { return d.x - minX + 10; }));
+      var nd = g.append("g").selectAll("g").data(root.descendants()).join("g").attr("class", function (d) { return "nd" + (d.hit ? " hit" : ""); })
+        .attr("transform", function (d) { return "translate(" + d.y + "," + (d.x - minX + 10) + ")"; })
+        .on("click", function (ev, d) { if (d.children) { d._children = d.children; d.children = null; } else if (d._children) { d.children = d._children; d._children = null; } update(); })
+        .on("dblclick", function (ev, d) { if (d.data.s) window.open(d.data.s.u, "_blank"); })
+        .on("mouseover", tip).on("mouseout", tipHide);
+      nd.append("circle").attr("r", function (d) { return 4 + Math.min(8, Math.sqrt(d.data.n)); })
+        .attr("fill", function (d) { var s = d.data.s; return s ? fillFor(pathOf(d), s.d, s.sc) : "#fff"; })
+        .attr("stroke", function (d) { return d.data.s ? (d._children ? "#202124" : "#fff") : fillFor(pathOf(d), d.data.d, -1); })
+        .attr("stroke-width", function (d) { return d.data.s ? 1.5 : 2.5; });
+      // Pages and closed folders: one line on the right. Open folders: two lines above the circle, so the lines to
+      // their sub-folders and the line from their parent never run through the text.
+      nd.filter(function (d) { return !d.children; }).append("text").attr("x", function (d) { return 9 + Math.min(8, Math.sqrt(d.data.n)); })
+        .attr("dy", "0.32em").attr("class", "lbl").text(label);
+      var open = nd.filter(function (d) { return !!d.children; }).append("text").attr("class", "lbl").attr("text-anchor", "middle");
+      open.append("tspan").attr("x", 0).attr("y", function (d) { return -(18 + Math.min(8, Math.sqrt(d.data.n))); }).style("font-weight", "bold").text(label);
+      open.append("tspan").attr("x", 0).attr("dy", "1.2em").style("fill", "#5f6368").text(folderLine);
+    }
+    refresh = update;
+    update();
+    // Fit the whole tree into the window (never smaller than 45%, so names stay readable; drag or scroll for the rest).
+    var box = document.getElementById("stage").getBoundingClientRect(), bb = g.node().getBBox();
+    var k = Math.max(0.45, Math.min(1, (box.width - 40) / (bb.width || 1), (box.height - 30) / (bb.height || 1)));
+    var ty = bb.height * k < box.height ? (box.height - bb.height * k) / 2 - bb.y * k : 15 - bb.y * k;
+    svg.call(zoom.transform, d3.zoomIdentity.translate(20 - bb.x * k, ty).scale(k));
+    find = function (q) {
+      var hits = [];
+      (function walk(d) {
+        d.hit = q && (dec(pathOf(d)).toLowerCase().indexOf(q) !== -1 || (d.data.s && d.data.s.u.toLowerCase().indexOf(q) !== -1));
+        if (d.hit) hits.push(d);
+        kidsOf(d).forEach(walk);
+      })(root);
+      hits.forEach(function (d) { d.ancestors().slice(1).forEach(function (a) { if (a._children) { a.children = a._children; a._children = null; } }); });
+      update();
+      info(hits.length ? hits.length + " folder(s)/page(s) match (outlined)" : "Nothing in the tree matches \"" + q + "\"");
+      if (hits.length) {
+        var minX = d3.min(root.descendants(), function (d) { return d.x; });
+        svg.transition().duration(400).call(zoom.translateTo, hits[0].y + 200, hits[0].x - minX + 10);
+      }
+    };
+  }
+
+  document.getElementById("colorBy").onchange = function () { legend(); refresh(); };
+  document.getElementById("q").onkeydown = function (e) { if (e.key === "Enter" && data) find(this.value.trim().toLowerCase()); };
+  document.getElementById("vGraph").onclick = function () { this.className = "on"; document.getElementById("vTree").className = ""; drawGraph(); };
+  document.getElementById("vTree").onclick = function () { this.className = "on"; document.getElementById("vGraph").className = ""; drawTree(); };
+  (function (d) {
+    if (d.error) { document.getElementById("msg").textContent = d.error; return; }
+    if (typeof d3 === "undefined") { document.getElementById("msg").textContent = "The drawing library didn't load (no internet access?). Try again."; return; }
+    data = d; document.getElementById("msg").remove(); drawGraph();
+    if (d.nodes.length < 2) info("Only " + d.nodes.length + " page was audited, so there is nothing to connect. Audit the whole domain, or a folder that has pages inside it (e.g. example.com/blog/).");
+  })(/*__DATA__*/null);
+</script></body></html>

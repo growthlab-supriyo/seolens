@@ -1,0 +1,19 @@
+# Publishes to PyPI when a GitHub release is created, with Trusted Publishing (no API token stored anywhere).
+# One-time setup on pypi.org: Account → Publishing → add this repository and the workflow file name "release.yml".
+name: release
+on:
+  release:
+    types: [published]
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build && python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
