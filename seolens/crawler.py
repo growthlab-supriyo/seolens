@@ -393,6 +393,8 @@ class Crawler:
         analysis runs in separate processes, one per spare core. Fetching stays in threads (it only waits on the network)."""
         self.cpu_pool = None
         n = max(1, min(8, (os.cpu_count() or 2) - 1))
+        if os.environ.get("SEOLENS_DEMO") == "1":
+            n = min(n, 2)  # shared cloud hosts report many cores but give an app little memory
         if n < 2 or os.environ.get("SEOLENS_NO_PROCESSES") == "1":
             return
         try:

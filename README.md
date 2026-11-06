@@ -4,6 +4,8 @@
 
 Made by [Supriyo Mallick](https://www.linkedin.com/in/s-mallick) for SEOs, freelancers and small teams who can't justify a paid crawler licence.
 
+**Try it online:** [seolens.streamlit.app](https://seolens.streamlit.app) (demo: up to 500 URLs per crawl) · **Install it:** `pipx install seolens` (up to 10,000 URLs) · [PyPI](https://pypi.org/project/seolens/)
+
 ## Install
 
 You need Python 3.10 or newer.

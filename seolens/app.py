@@ -193,8 +193,9 @@ def pages_frame(run_id, updated):
 
 
 run = check_alive(db.run(rid))
-st.subheader("%s %s" % (STATUS_ICON.get(run["status"], ""), run["target"]))
-st.caption("Crawl #%d · started %s · %s" % (run["id"], fmt_time(run["created"]), run["status"]))
+shown = "running" if run["status"] in LIVE else run["status"]  # the header isn't redrawn while the live panel updates
+st.subheader("%s %s" % (STATUS_ICON.get(shown, ""), run["target"]))
+st.caption("Crawl #%d · started %s · %s" % (run["id"], fmt_time(run["created"]), shown))
 
 if run["status"] in LIVE:
     live_view(rid)
