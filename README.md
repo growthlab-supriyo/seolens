@@ -97,6 +97,7 @@ The tests run a small local website with redirects, a 404, a slow page, a rate-l
 | `seolens/worker.py` | Runs the crawl in its own process |
 | `seolens/app.py`, `overview.py` | Streamlit dashboard |
 
-**Public demo:** set `SEOLENS_DEMO=1` to cap crawls at 500 URLs and turn off JavaScript rendering (for example on Hugging Face Spaces).
+**Online demo:** `streamlit_app.py` runs SEO Lens in demo mode (`SEOLENS_DEMO=1`: 500 URLs per crawl, no JavaScript rendering,
+robots.txt always respected, no login fields) on Streamlit Community Cloud. `deploy/docker/Dockerfile` runs the same demo in Docker.
 
 MIT licence.

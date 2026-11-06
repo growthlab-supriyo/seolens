@@ -1,8 +1,8 @@
-# Hugging Face Space (Docker) for the public SEO Lens demo: 500 URLs per crawl, no JavaScript rendering.
-# Copy this file and README.md (in this folder) into a new Space; see docs/LAUNCH.md.
+# Run SEO Lens in Docker (for example on your own server) as the public demo: 500 URLs per crawl, no JavaScript rendering.
+# Build: docker build -t seolens deploy/docker   Run: docker run -p 7860:7860 seolens   Open: http://localhost:7860
+# Remove SEOLENS_DEMO=1 below to run it without the demo limits.
 FROM python:3.12-slim
 
-# Spaces run the container as user 1000.
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user \

@@ -126,6 +126,17 @@ if DEMO and rid not in st.session_state.get("my_runs", []):
     rid = None
 if not rid or not db.run(rid):
     st.header("A free SEO crawler you can trust")
+    if DEMO:
+        st.markdown(
+            "This is the **online demo**: up to **%d URLs** per crawl, without JavaScript rendering. The full version "
+            "crawls up to **%s URLs** and runs free on your own computer: `pipx install seolens`, then `seolens`.\n\n"
+            "- Checks status codes, redirects, titles, descriptions, headings, canonicals, hreflang, schema, images, "
+            "internal links, click depth, orphan pages, duplicates and near-duplicates.\n"
+            "- Crawls you start here are visible only to you, and are deleted when the demo restarts. No account, no tracking.\n"
+            "- **Honest crawling.** It says who it is, respects robots.txt, slows down when a site asks, and reports blocked "
+            "pages instead of hiding them.\n\n"
+            "Enter a website on the left to start." % (DEMO_MAX, f"{MAX_URLS:,}"))
+        st.stop()
     st.markdown(
         "- Crawls up to **%s URLs**: status codes, redirects, titles, descriptions, headings, canonicals, hreflang, "
         "schema, images, internal links, click depth, orphan pages, duplicates and near-duplicates.\n"

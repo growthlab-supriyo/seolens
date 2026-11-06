@@ -37,22 +37,26 @@ Accounts: GitHub `growthlab-supriyo`. Everything below is free.
    seolens
    ```
 
-## 3. Hugging Face: the online demo (500 URLs)
+## 3. Streamlit Community Cloud: the online demo (500 URLs)
 
-Do this after step 2: the demo installs the published package.
+The demo runs straight from the GitHub repository: `streamlit_app.py` switches on demo mode and `requirements.txt` installs the
+package from the repository. (Hugging Face Docker Spaces now need a paid plan.)
 
-1. Create an account at https://huggingface.co/join.
-2. https://huggingface.co/new-space → Space name `seolens` · License MIT · SDK **Docker** → **Blank** · Hardware **CPU basic (free)** · **Public** → **Create Space**.
-3. In the Space: **Files → Add file → Upload files** → upload `deploy/huggingface/Dockerfile` and `deploy/huggingface/README.md`
-   (the README replaces the Space's own one) → **Commit**.
-4. The Space builds for a few minutes, then opens at `https://<your-hf-username>-seolens.hf.space`.
-5. Add the demo link to the GitHub README (line under the title) and to the repository's **About → Website**.
+1. Open https://share.streamlit.io and choose **Continue with GitHub**; sign in as `growthlab-supriyo` and allow access.
+2. **Create app → Deploy a public app from GitHub**:
+   - Repository: `growthlab-supriyo/seolens` · Branch: `main` · Main file path: `streamlit_app.py`
+   - App URL: `seolens` (gives `https://seolens.streamlit.app`, if that name is free)
+   - **Advanced settings → Python version: 3.12**
+3. **Deploy**. The first build takes a few minutes.
+4. Add the demo link to the GitHub README (line under the title) and to the repository's **About → Website**.
 
-Free Spaces go to sleep after about 48 hours without visitors and wake on the next visit (about 30 seconds).
+Free apps go to sleep after some days without visitors and wake on the next visit. Every push to `main` updates the demo.
+Crawl data on the demo is lost when the app restarts or sleeps.
 
 ## 4. After launch
 
 - Share it: a LinkedIn post with a screenshot of the Overview and a sample Excel (from a site you own).
 - Releases: raise `version` in `pyproject.toml` and `seolens/__init__.py`, add a CHANGELOG entry, commit, then publish a new GitHub
-  release `vX.Y.Z`; PyPI updates by itself. Update the version in `deploy/huggingface/Dockerfile` and re-upload it.
+  release `vX.Y.Z`; PyPI updates by itself. The Streamlit demo updates on every push; update the version in
+  `deploy/docker/Dockerfile` if you use Docker.
 - Optional later: a signed Windows .exe through SignPath Foundation (free for open-source projects).
