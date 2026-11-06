@@ -1,6 +1,6 @@
 """The crawl runs here, in its own process, so the Streamlit page never freezes and a crawl survives a browser refresh.
 
-    python -m simplescope.worker --run 3 [--resume] [--db path]
+    python -m seolens.worker --run 3 [--resume] [--db path]
 """
 import argparse
 import os
@@ -15,7 +15,7 @@ from .store import DB_PATH, Store
 
 def start_worker(run_id, resume=False, db=None, finish=False):
     """Starts the crawler process in the background; returns its PID."""
-    cmd = [sys.executable, "-m", "simplescope.worker", "--run", str(run_id), "--db", str(db or DB_PATH)]
+    cmd = [sys.executable, "-m", "seolens.worker", "--run", str(run_id), "--db", str(db or DB_PATH)]
     if resume:
         cmd.append("--resume")
     if finish:

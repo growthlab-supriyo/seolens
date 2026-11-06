@@ -5,7 +5,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PAGE = """<!doctype html><html lang="en"><head><title>Test page {n} about gardening tools</title>
-<meta name="description" content="Page {n} of the Simple Scope test site, a description long enough to pass the length check for tests.">
+<meta name="description" content="Page {n} of the SEO Lens test site, a description long enough to pass the length check for tests.">
 <link rel="canonical" href="http://127.0.0.1:{port}{path}"></head>
 <body><h1>Gardening page {n}</h1><p>{text}</p>{links}</body></html>"""
 

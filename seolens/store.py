@@ -9,7 +9,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-HOME = Path(os.environ.get("SIMPLESCOPE_HOME") or Path.home() / ".simplescope")
+HOME = Path(os.environ.get("SEOLENS_HOME") or Path.home() / ".seolens")
 DB_PATH = HOME / "crawls.db"
 REPORTS = HOME / "reports"
 

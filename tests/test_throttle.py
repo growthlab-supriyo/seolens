@@ -1,4 +1,4 @@
-from simplescope.throttle import Throttle
+from seolens.throttle import Throttle
 
 
 class Clock:

@@ -102,8 +102,8 @@ class Renderer:
                 self._browser = await self._pw.chromium.launch(channel=channel, headless=True) if channel else await self._pw.chromium.launch(headless=True)
                 v = self._browser.version.split(".")[0]
                 self.name = "%s %s" % (label, v)
-                # The browser's own identity plus Simple Scope's name, so the site knows an audit tool is rendering it.
-                self.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s.0.0.0 Safari/537.36 SimpleScope/%s" % (
+                # The browser's own identity plus SEO Lens's name, so the site knows an audit tool is rendering it.
+                self.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s.0.0.0 Safari/537.36 SEOLens/%s" % (
                     v, __version__)
                 return
             except Exception:  # noqa: BLE001 - try the next browser

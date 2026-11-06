@@ -116,7 +116,7 @@ class Crawler:
     def __init__(self, settings, report, stop_event, store=None, run_id=None):
         self.s = settings
         self.s["max_pages"] = max(1, min(int(self.s.get("max_pages") or 500), MAX_URLS))
-        if os.environ.get("SIMPLESCOPE_DEMO") == "1":
+        if os.environ.get("SEOLENS_DEMO") == "1":
             # Public demo: enforced here too, not only in the form, so no request can get around it.
             self.s.update(max_pages=min(self.s["max_pages"], DEMO_MAX_URLS), render_js="off", respect_robots=True,
                           auth_headers="", auth_user="", auth_pass="")
@@ -132,7 +132,7 @@ class Crawler:
         start, lo, hi = SPEEDS.get(settings.get("speed"), SPEEDS["Medium"])
         self.throttle = Throttle(start, lo, hi)
         self.delay = 0.0                # only set by a robots.txt Crawl-delay
-        self.browser = False            # kept for the report: Simple Scope never switches to a browser identity
+        self.browser = False            # kept for the report: SEO Lens never switches to a browser identity
         self.ok_pages = 0
         self.robots_group = None
         self.robots_raw = None
@@ -393,7 +393,7 @@ class Crawler:
         analysis runs in separate processes, one per spare core. Fetching stays in threads (it only waits on the network)."""
         self.cpu_pool = None
         n = max(1, min(8, (os.cpu_count() or 2) - 1))
-        if n < 2 or os.environ.get("SIMPLESCOPE_NO_PROCESSES") == "1":
+        if n < 2 or os.environ.get("SEOLENS_NO_PROCESSES") == "1":
             return
         try:
             self.cpu_pool = ProcessPoolExecutor(max_workers=n)

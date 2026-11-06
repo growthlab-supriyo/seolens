@@ -1,8 +1,8 @@
 """Command line.
 
-    simple-scope                     opens the app in your browser (same as `simple-scope app`)
-    simple-scope crawl example.com --max 2000 --speed Medium --render off
-    simple-scope crawl --list urls.txt
+    seolens                     opens the app in your browser (same as `seolens app`)
+    seolens crawl example.com --max 2000 --speed Medium --render off
+    seolens crawl --list urls.txt
 """
 import argparse
 import sys
@@ -19,7 +19,7 @@ def _app(port, host="localhost", browser=True):
     url = "http://localhost:%d" % port
     # Headless mode skips Streamlit's first-run "enter your email" prompt (which would wait forever);
     # the browser is opened here instead, once the server has had a moment to start.
-    print("Simple Scope is starting: %s (keep this window open while you use it; Ctrl+C stops it)" % url, flush=True)
+    print("SEO Lens is starting: %s (keep this window open while you use it; Ctrl+C stops it)" % url, flush=True)
     if host != "localhost":
         print("Listening on %s:%d: other devices on this network can open it (there is no login)." % (host, port), flush=True)
     if browser:
@@ -46,10 +46,10 @@ def _crawl(a):
     elif a.site:
         settings.update(mode="domain", site=a.site)
     else:
-        sys.exit("Give a website (simple-scope crawl example.com) or --list urls.txt")
+        sys.exit("Give a website (seolens crawl example.com) or --list urls.txt")
     store = Store()
     run_id = store.create_run(settings)
-    print("Run %d: crawling %s (the app shows it too: simple-scope app)" % (run_id, settings.get("site") or a.list))
+    print("Run %d: crawling %s (the app shows it too: seolens app)" % (run_id, settings.get("site") or a.list))
     _work(store, run_id, [])
 
 
@@ -86,7 +86,7 @@ def _work(store, run_id, extra):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="simple-scope", description="Free, open-source SEO crawler (up to 10,000 URLs).")
+    ap = argparse.ArgumentParser(prog="seolens", description="Free, open-source SEO crawler (up to 10,000 URLs).")
     sub = ap.add_subparsers(dest="cmd")
     p = sub.add_parser("app", help="open the app in your browser")
     p.add_argument("--port", type=int, default=8501)

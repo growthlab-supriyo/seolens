@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "simple-scope"
+name = "seolens"
 version = "0.1.0"
 description = "Free, open-source SEO crawler and audit tool (up to 10,000 URLs) with a Streamlit dashboard."
 readme = "README.md"
@@ -31,13 +31,13 @@ js = ["playwright>=1.40,<2"]
 dev = ["pytest>=8"]
 
 [project.scripts]
-simple-scope = "simplescope.cli:main"
+seolens = "seolens.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/growthlab-supriyo/simple-scope"
+Homepage = "https://github.com/growthlab-supriyo/seolens"
 
 [tool.setuptools]
-packages = ["simplescope"]
+packages = ["seolens", "seolens.data"]
 
 [tool.setuptools.package-data]
-simplescope = ["data/*"]
+seolens = ["data/*"]

@@ -2,14 +2,22 @@ import threading
 
 import pytest
 
-from simplescope.audit import Paused, run_audit
-from simplescope.store import Store
+from seolens.audit import Paused, run_audit
+from seolens.store import Store
 from testsite import make_server
 
 
 @pytest.fixture()
 def site():
     srv = make_server(pages=80, slow_s=1.0, latency_s=0.15)  # slow enough to pause mid-crawl
+    yield "http://127.0.0.1:%d/" % srv.server_address[1]
+    srv.shutdown()
+
+
+@pytest.fixture()
+def slow_site():
+    # 1 s per page: the crawl takes several seconds, so a pause or finish request (read once a second) always lands mid-crawl.
+    srv = make_server(pages=80, latency_s=1.0)
     yield "http://127.0.0.1:%d/" % srv.server_address[1]
     srv.shutdown()
 
@@ -34,9 +42,9 @@ def test_full_audit_labels_blocked_pages_and_writes_reports(site, tmp_path):
     assert (tmp_path / res["xlsx"].split("\\")[-1].split("/")[-1]).exists()
 
 
-def test_pause_then_resume_crawls_every_page_once(site, tmp_path):
+def test_pause_then_resume_crawls_every_page_once(slow_site, tmp_path):
     store = Store(tmp_path / "t.db")
-    rid = store.create_run(settings(site, tmp_path))
+    rid = store.create_run(settings(slow_site, tmp_path))
     calls = {"n": 0}
 
     def report(st):
@@ -55,9 +63,9 @@ def test_pause_then_resume_crawls_every_page_once(site, tmp_path):
     assert len(urls) == len(set(urls)) == res["pages"] >= 80
 
 
-def test_finish_now_builds_a_report_from_partial_crawl(site, tmp_path):
+def test_finish_now_builds_a_report_from_partial_crawl(slow_site, tmp_path):
     store = Store(tmp_path / "t.db")
-    rid = store.create_run(settings(site, tmp_path))
+    rid = store.create_run(settings(slow_site, tmp_path))
 
     def report(st):
         if st.get("phase") == "crawling" and st.get("done", 0) >= 10:

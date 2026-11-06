@@ -11,8 +11,8 @@ urllib3.disable_warnings()
 
 from . import PROJECT_URL, __version__
 
-# Simple Scope always tells websites who it is: it never pretends to be a person's browser to get past a block.
-BOT_UA = "Mozilla/5.0 (compatible; SimpleScope/%s; +%s)" % (__version__, PROJECT_URL)
+# SEO Lens always tells websites who it is: it never pretends to be a person's browser to get past a block.
+BOT_UA = "Mozilla/5.0 (compatible; SEOLens/%s; +%s)" % (__version__, PROJECT_URL)
 BROWSER_UA = BOT_UA  # kept for the modules that ask for it; it is the same honest identity
 TIMEOUT = 20
 MAX_REDIRECTS = 5

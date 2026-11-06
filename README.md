@@ -1,4 +1,4 @@
-# 🔎 Simple Scope
+# 🔎 SEO Lens
 
 **A free, open-source SEO crawler and site audit tool.** It crawls up to 10,000 URLs per run and gives you a health dashboard, an Excel report and a site architecture map. It runs on your own computer, so there's no account, no subscription and no tracking.
 
@@ -9,16 +9,16 @@ Made by [Supriyo Mallick](https://www.linkedin.com/in/s-mallick) for SEOs, freel
 You need Python 3.10 or newer.
 
 ```bash
-pipx install simple-scope
-simple-scope
+pipx install seolens
+seolens
 ```
 
-The app opens in your browser at `http://localhost:8501`. (`pip install simple-scope` works too.)
+The app opens in your browser at `http://localhost:8501`. (`pip install seolens` works too.)
 
 **Optional JavaScript rendering**, for sites built with React, Vue and similar frameworks:
 
 ```bash
-pipx install "simple-scope[js]"
+pipx install "seolens[js]"
 playwright install chromium
 ```
 
@@ -27,9 +27,9 @@ JavaScript rendering uses Microsoft Edge or Google Chrome if one is installed, a
 **From source:**
 
 ```bash
-git clone https://github.com/growthlab-supriyo/simple-scope && cd simple-scope
+git clone https://github.com/growthlab-supriyo/seolens && cd seolens
 pip install -e ".[dev]"
-simple-scope
+seolens
 ```
 
 ## What it checks
@@ -55,22 +55,22 @@ simple-scope
 
 ## Honest crawling: what it does with Cloudflare and firewalls
 
-Simple Scope **does not bypass** Cloudflare, CAPTCHAs or other bot protection, and it never disguises itself as a person's browser. It sends `SimpleScope/<version>` in its User-Agent so site owners can see who is crawling them. What it does instead:
+SEO Lens **does not bypass** Cloudflare, CAPTCHAs or other bot protection, and it never disguises itself as a person's browser. It sends `SEOLens/<version>` in its User-Agent so site owners can see who is crawling them. What it does instead:
 
 - **Detects and labels** each blocked page: Cloudflare challenge, bot check or CAPTCHA, 403, rate limiting (429), server busy (503), timeouts and connection errors. Blocked pages appear in the **Blocked & failed** tab and the Excel summary, never silently missing, so an incomplete crawl can't pass for a complete audit.
 - **Doesn't hammer a blocked page.** A challenge page is not retried. A 403 is retried once, and only if the site was serving pages normally until then.
-- **Authorized access for sites you own.** In Cloudflare, add a WAF custom rule that skips security checks for a secret request header (or for the `SimpleScope` User-Agent). Then add that header under *Authorized access* in the app. HTTP Basic login is supported too. Credentials are sent **only** to the site being audited, never to external links, images or redirects to other hosts. They are stored in the local database on your computer.
+- **Authorized access for sites you own.** In Cloudflare, add a WAF custom rule that skips security checks for a secret request header (or for the `SEOLens` User-Agent). Then add that header under *Authorized access* in the app. HTTP Basic login is supported too. Credentials are sent **only** to the site being audited, never to external links, images or redirects to other hosts. They are stored in the local database on your computer.
 
 ## Command line
 
 ```bash
-simple-scope crawl example.com --max 2000 --speed Medium --render off
-simple-scope crawl --list urls.txt
+seolens crawl example.com --max 2000 --speed Medium --render off
+seolens crawl --list urls.txt
 ```
 
 ## Where your data lives
 
-The database and reports are stored in `~/.simplescope/` (`C:\Users\<you>\.simplescope\` on Windows). To use another folder, set `SIMPLESCOPE_HOME`. Nothing is sent anywhere else.
+The database and reports are stored in `~/.seolens/` (`C:\Users\<you>\.seolens\` on Windows). To use another folder, set `SEOLENS_HOME`. Nothing is sent anywhere else.
 
 ## Limits
 
@@ -89,14 +89,14 @@ The tests run a small local website with redirects, a 404, a slow page, a rate-l
 
 | File | What it does |
 |---|---|
-| `simplescope/crawler.py` | Discovery, fetch loop, blocked-page classification, saving and resuming |
-| `simplescope/throttle.py` | The adaptive concurrency controller |
-| `simplescope/analyze.py`, `checks.py`, `sitehealth.py` | Per-page analysis, cross-page checks, site-wide checks |
-| `simplescope/report.py` | Excel report and site architecture map |
-| `simplescope/store.py` | SQLite (WAL) |
-| `simplescope/worker.py` | Runs the crawl in its own process |
-| `simplescope/app.py`, `overview.py` | Streamlit dashboard |
+| `seolens/crawler.py` | Discovery, fetch loop, blocked-page classification, saving and resuming |
+| `seolens/throttle.py` | The adaptive concurrency controller |
+| `seolens/analyze.py`, `checks.py`, `sitehealth.py` | Per-page analysis, cross-page checks, site-wide checks |
+| `seolens/report.py` | Excel report and site architecture map |
+| `seolens/store.py` | SQLite (WAL) |
+| `seolens/worker.py` | Runs the crawl in its own process |
+| `seolens/app.py`, `overview.py` | Streamlit dashboard |
 
-**Public demo:** set `SIMPLESCOPE_DEMO=1` to cap crawls at 500 URLs and turn off JavaScript rendering (for example on Hugging Face Spaces).
+**Public demo:** set `SEOLENS_DEMO=1` to cap crawls at 500 URLs and turn off JavaScript rendering (for example on Hugging Face Spaces).
 
 MIT licence.

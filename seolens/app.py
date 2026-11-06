@@ -1,4 +1,4 @@
-"""Simple Scope: the Streamlit app. It only starts crawls and reads the database; the crawl itself runs in worker.py."""
+"""SEO Lens: the Streamlit app. It only starts crawls and reads the database; the crawl itself runs in worker.py."""
 import os
 import sys
 import time
@@ -6,17 +6,17 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-if __package__ in (None, ""):  # `streamlit run simplescope/app.py` from a source checkout
+if __package__ in (None, ""):  # `streamlit run seolens/app.py` from a source checkout
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 import streamlit as st
 
-from simplescope import DEMO_MAX_URLS, MAX_URLS, __version__
-from simplescope.store import Store
-from simplescope.worker import pid_alive, start_worker
+from seolens import DEMO_MAX_URLS, MAX_URLS, __version__
+from seolens.store import Store
+from seolens.worker import pid_alive, start_worker
 
-DEMO = os.environ.get("SIMPLESCOPE_DEMO") == "1"   # public demo: small crawls only
+DEMO = os.environ.get("SEOLENS_DEMO") == "1"   # public demo: small crawls only
 DEMO_MAX = DEMO_MAX_URLS
 LIVE = ("queued", "running", "finishing")
 STATUS_ICON = {"queued": "⏳", "running": "🕷️", "finishing": "🧮", "done": "✅", "paused": "⏸", "stopped": "⏹",
@@ -25,7 +25,7 @@ KEY_COLUMNS = ["URL", "Final Status", "Crawl Access", "Indexable", "Meta Title",
                "Description Length", "H1 Text", "Word Count", "Canonical URL", "Click Depth", "Link Score (0-100)",
                "Linked From (pages)", "Page Score", "Issues"]
 
-st.set_page_config(page_title="Simple Scope", page_icon="🔎", layout="wide")
+st.set_page_config(page_title="SEO Lens", page_icon="🔎", layout="wide")
 
 
 @st.cache_resource
@@ -55,7 +55,7 @@ def check_alive(run):
 # ---------------------------------------------------------------- sidebar: new crawl + history
 
 with st.sidebar:
-    st.title("🔎 Simple Scope")
+    st.title("🔎 SEO Lens")
     st.caption("Free, open-source SEO crawler · v%s" % __version__)
     with st.form("new"):
         mode = st.radio("What to crawl", ["Website or folder", "List of URLs"], horizontal=True)
@@ -70,7 +70,7 @@ with st.sidebar:
             render = st.selectbox("JavaScript rendering (optional)", ["off", "auto", "all"], disabled=DEMO,
                                   format_func={"off": "Off: raw HTML only (fastest)", "auto": "Auto: start page + pages that look empty",
                                                "all": "Every page: compare raw vs rendered"}.get,
-                                  help="Needs Playwright (pip install \"simple-scope[js]\" then playwright install chromium). "
+                                  help="Needs Playwright (pip install \"seolens[js]\" then playwright install chromium). "
                                        "auto = start page + pages that look empty without JavaScript.")
             follow = st.checkbox("Follow links", True)
             robots = st.checkbox("Respect robots.txt", True, help="Turn off only for a site you own.", disabled=DEMO)
@@ -116,7 +116,7 @@ with st.sidebar:
                                         format_func=lambda i: run_label(next(r for r in history if r["id"] == i)))
     if DEMO:
         st.info("Demo: up to %d URLs, no JavaScript rendering. For 10,000-URL crawls, install it free on your computer: "
-                "`pipx install simple-scope`" % DEMO_MAX)
+                "`pipx install seolens`" % DEMO_MAX)
 
 
 # ---------------------------------------------------------------- main area
@@ -234,14 +234,14 @@ elif run["status"] != "done":
 tabs = st.tabs(["Overview", "Issues", "All pages", "Response codes", "Blocked & failed", "Broken links", "Site health"])
 
 with tabs[0]:
-    from simplescope.overview import overview
+    from seolens.overview import overview
     overview(df, res, access)
 tabs = tabs[1:]
 
 with tabs[0]:
     counts = Counter(i.strip() for v in df.get("Issues", pd.Series(dtype=str)).fillna("") for i in str(v).split(";") if i.strip())
     if counts:
-        from simplescope.checks import fix_text, priority
+        from seolens.checks import fix_text, priority
         idf = pd.DataFrame([{"Issue": k, "Priority": priority(k), "Pages": n, "How to fix": fix_text(k)} for k, n in counts.items()])
         idf["_r"] = idf["Priority"].map({"Critical": 0, "High": 1, "Medium": 2, "Low": 3})
         idf = idf.sort_values(["_r", "Pages"], ascending=[True, False]).drop(columns="_r")
@@ -281,8 +281,8 @@ with tabs[2]:
 with tabs[3]:
     bad = df[access != "OK"]
     st.markdown("Pages the crawler **couldn't read**. They are not counted as broken pages: the site refused them, or didn't answer. "
-                "Simple Scope doesn't try to get around a firewall. For a site you own, allow its User-Agent "
-                "(`SimpleScope`) in Cloudflare (WAF → custom rule → skip) or in your firewall, then crawl again.")
+                "SEO Lens doesn't try to get around a firewall. For a site you own, allow its User-Agent "
+                "(`SEOLens`) in Cloudflare (WAF → custom rule → skip) or in your firewall, then crawl again.")
     if len(bad):
         st.dataframe(bad[[c for c in ("URL", "Final Status", "Crawl Access", "Redirect Chain") if c in bad]], width="stretch", hide_index=True)
     else:
