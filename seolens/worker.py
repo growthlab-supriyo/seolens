@@ -13,14 +13,20 @@ import traceback
 from .store import DB_PATH, Store
 
 
-def start_worker(run_id, resume=False, db=None, finish=False):
-    """Starts the crawler process in the background; returns its PID."""
+def start_worker(run_id, resume=False, db=None, finish=False, crux_key=""):
+    """Starts the crawler process in the background; returns its PID.
+    crux_key: handed to that process in memory only (environment), never written to the database."""
     cmd = [sys.executable, "-m", "seolens.worker", "--run", str(run_id), "--db", str(db or DB_PATH)]
     if resume:
         cmd.append("--resume")
     if finish:
         cmd.append("--finish")
-    kw = {"cwd": os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "close_fds": True}
+    env = dict(os.environ)
+    env.pop("SEOLENS_CRUX_KEY", None)
+    if crux_key:
+        env["SEOLENS_CRUX_KEY"] = crux_key
+    kw = {"cwd": os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+          "stderr": subprocess.DEVNULL, "close_fds": True, "env": env}
     if os.name == "nt":
         kw["creationflags"] = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
     else:

@@ -11,7 +11,7 @@ import os
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, ThreadPoolExecutor, wait
 from concurrent.futures.process import BrokenProcessPool
 
-from . import DEMO_MAX_URLS, MAX_URLS
+from . import MAX_URLS, ONLINE_MAX_URLS
 from .analyze import analyze_page
 from .htmltools import (FILE_EXT_RE, NON_PAGE_PATH_RE, bare_host, is_bot_check_page, is_utility_link, parse_url, path_of,
                         queue_key)
@@ -116,9 +116,9 @@ class Crawler:
     def __init__(self, settings, report, stop_event, store=None, run_id=None):
         self.s = settings
         self.s["max_pages"] = max(1, min(int(self.s.get("max_pages") or 500), MAX_URLS))
-        if os.environ.get("SEOLENS_DEMO") == "1":
-            # Public demo: enforced here too, not only in the form, so no request can get around it.
-            self.s.update(max_pages=min(self.s["max_pages"], DEMO_MAX_URLS), render_js="off", respect_robots=True,
+        if os.environ.get("SEOLENS_ONLINE") == "1":
+            # Online version: enforced here too, not only in the form, so no request can get around it.
+            self.s.update(max_pages=min(self.s["max_pages"], ONLINE_MAX_URLS), render_js="off", respect_robots=True,
                           auth_headers="", auth_user="", auth_pass="")
         self.report = report            # report(dict) → progress
         self.stop = stop_event
@@ -393,7 +393,7 @@ class Crawler:
         analysis runs in separate processes, one per spare core. Fetching stays in threads (it only waits on the network)."""
         self.cpu_pool = None
         n = max(1, min(8, (os.cpu_count() or 2) - 1))
-        if os.environ.get("SEOLENS_DEMO") == "1":
+        if os.environ.get("SEOLENS_ONLINE") == "1":
             n = min(n, 2)  # shared cloud hosts report many cores but give an app little memory
         if n < 2 or os.environ.get("SEOLENS_NO_PROCESSES") == "1":
             return

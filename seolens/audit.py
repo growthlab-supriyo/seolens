@@ -1,4 +1,5 @@
 """Runs one audit from start to finish: crawl → checks → Site Health → scores → Excel report + Site Architecture Map."""
+import os
 import re
 import threading
 from datetime import datetime
@@ -28,11 +29,25 @@ DEFAULT_SETTINGS = {
 }
 
 
+def report_tz(s):
+    """The time zone of the person who started the crawl (sent by their browser), so the report shows their local time."""
+    from datetime import timedelta, timezone
+    from zoneinfo import ZoneInfo
+    try:
+        if s.get("tz"):
+            return ZoneInfo(s["tz"])
+    except Exception:  # noqa: BLE001 - unknown zone name
+        pass
+    off = s.get("tz_offset")
+    return timezone(timedelta(minutes=-off)) if isinstance(off, (int, float)) else None
+
+
 def run_audit(settings, report=lambda st: None, stop=None, store=None, run_id=None, resume=False):
     """Returns {"xlsx", "map", "overall", "pages"}; raises Paused / Stopped / ValueError."""
     s = dict(DEFAULT_SETTINGS, **settings)
     stop = stop or threading.Event()
-    started = datetime.now()
+    tz = report_tz(s)
+    started = datetime.now(tz)
     report({"phase": "discovering", "started": started.timestamp(), "log": "Audit resumed" if resume else "Audit started"})
     crawler = Crawler(s, report, stop, store, run_id).run(resume=resume)
     if not crawler.rows:
@@ -47,9 +62,13 @@ def run_audit(settings, report=lambda st: None, stop=None, store=None, run_id=No
     site = run_site_health(crawler, report)
     post.analyze_links(site)
     post.cross_page()
+    crux_key = s.get("crux_key") or os.environ.get("SEOLENS_CRUX_KEY", "")
+    if crux_key:
+        from .crux import add_crux
+        add_crux(crawler, post, site, crux_key, report, stop)
     report({"phase": "scoring", "log": "Scoring pages and finding duplicates"})
     post.scores()
-    finished = datetime.now()
+    finished = datetime.now(tz)
     out = Path(s["out_dir"])
     out.mkdir(parents=True, exist_ok=True)
     name = re.sub(r"[^a-z0-9.-]+", "-", (crawler.host or "audit").lower().replace("www.", "")) + \

@@ -4,7 +4,7 @@
 
 Made by [Supriyo Mallick](https://www.linkedin.com/in/s-mallick) for SEOs, freelancers and small teams who can't justify a paid crawler licence.
 
-**Try it online:** [seolens.streamlit.app](https://seolens.streamlit.app) (demo: up to 500 URLs per crawl) · **Install it:** `pipx install seolens` (up to 10,000 URLs) · [PyPI](https://pypi.org/project/seolens/)
+**Try it online:** [seolens.streamlit.app](https://seolens.streamlit.app) (online: up to 500 URLs per crawl) · **Install it:** `pipx install seolens` (up to 10,000 URLs) · [PyPI](https://pypi.org/project/seolens/)
 
 ## Install
 
@@ -99,7 +99,7 @@ The tests run a small local website with redirects, a 404, a slow page, a rate-l
 | `seolens/worker.py` | Runs the crawl in its own process |
 | `seolens/app.py`, `overview.py` | Streamlit dashboard |
 
-**Online demo:** `streamlit_app.py` runs SEO Lens in demo mode (`SEOLENS_DEMO=1`: 500 URLs per crawl, no JavaScript rendering,
-robots.txt always respected, no login fields) on Streamlit Community Cloud. `deploy/docker/Dockerfile` runs the same demo in Docker.
+**Online version:** `streamlit_app.py` runs SEO Lens in online mode (`SEOLENS_ONLINE=1`: 500 URLs per crawl, no JavaScript rendering,
+robots.txt always respected, no login fields) on Streamlit Community Cloud. `deploy/docker/Dockerfile` runs the same online version in Docker.
 
 MIT licence.

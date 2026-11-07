@@ -11,7 +11,16 @@ CDN_NAMES = {"cf-cache-status": "Cloudflare", "x-hcdn-cache-status": "Hostinger 
              "x-litespeed-cache": "LiteSpeed", "x-fastly-cache": "Fastly"}
 
 
+REMOVED_SITE_CHECKS = {"Bulk date updates"}
+
+
 def run_site_health(crawler, report):
+    out = _run_site_health(crawler, report)
+    out["checks"] = [c for c in out["checks"] if c["check"] not in REMOVED_SITE_CHECKS]
+    return out
+
+
+def _run_site_health(crawler, report):
     s, f, rows = crawler.s, crawler.fetcher, crawler.rows
     checks = []
 

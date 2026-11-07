@@ -86,8 +86,34 @@ CATEGORY_FIX = {"Server error (5xx)": "Crawlability & indexing", "Page not found
 
 MAX_LINKS = 10
 # Image issues in the order their URLs are listed: an image already listed for a page under an earlier one isn't repeated.
-IMAGE_ISSUES = [("Heavy images", "Heavy Images (200 KB+)"), ("Images missing alt text", "Images Missing Alt (URLs)"),
-                ("Images missing width/height", "Images Missing Width/Height (URLs)")]
+IMAGE_ISSUES = [("Heavy images", "Heavy Images (200 KB+)"), ("Images missing alt text", "Images Missing Alt (URLs)")]
+# Only measured when links are followed across the site: left out of URL-list audits instead of showing N/A.
+LINK_GRAPH_COLUMNS = ["Linked From (pages)", "Orphan Page", "Click Depth", "Link Score (0-100)"]
+
+
+def _blank(v):
+    return v in (None, "") or (isinstance(v, str) and (not v.strip() or v.startswith("N/A")))
+
+
+def _na(v):
+    """No 'N/A' anywhere: 'N/A – not an HTML page (pdf)' becomes 'Not an HTML page (pdf)'; a bare N/A becomes empty."""
+    if isinstance(v, str) and v.startswith("N/A"):
+        rest = re.sub(r"^N/A\s*[–\-:]+\s*", "", v) if re.match(r"^N/A\s*[–\-:]", v) else ""
+        return rest[:1].upper() + rest[1:] if rest else ""
+    return v
+
+
+def _useful_columns(columns, rows, link_graph=True):
+    """The columns worth showing: not hidden, not link-graph columns when links weren't followed, not empty or all N/A."""
+    from .report import HIDDEN_COLUMNS
+    out = []
+    for c in columns:
+        if c in HIDDEN_COLUMNS or (not link_graph and c in LINK_GRAPH_COLUMNS):
+            continue
+        if c != "URL" and all(_blank(r.get(c)) for r in rows):
+            continue
+        out.append(c)
+    return out
 
 
 def _urls_in(value):
@@ -251,6 +277,8 @@ def write_report(path, crawler, post, site, started, finished, ai_out=None):
     checks = site["checks"] + post.checks
     avg, penalty, overall = overall_score(rows, checks)
     issues = build_issues(rows, checks, site["site_wide"])
+    # Click depth, orphans, Link Score and the Internal Linking sheet exist only when links were followed across the site.
+    link_graph = s["mode"] == "domain" and s.get("follow_links", True)
     wb = Workbook()
     wb.remove(wb.active)
     sheets = {name: wb.create_sheet(name) for name in (
@@ -259,28 +287,45 @@ def write_report(path, crawler, post, site, started, finished, ai_out=None):
 
     first_url_row = _issue_urls(sheets["Issue URLs"], issues, rows)
     _action_plan(sheets["Action Plan"], issues, first_url_row)
-    _summary(sheets["Summary"], crawler, rows, issues, overall, avg, penalty, site, finished, first_url_row)
-    _pages(sheets["Pages"], rows)
-    _response_codes(sheets["Response Codes"], rows)
-    _links(sheets["Links"], post)
-    _images(sheets["Images"], crawler, post)
-    _internal_linking(sheets["Internal Linking"], crawler, post)
+    keep = {"Summary", "Action Plan", "Site Health", "About This Audit", "All Data", "Pages", "Sitemap & Discovery"}
+    if first_url_row:
+        keep.add("Issue URLs")
+    _pages(sheets["Pages"], rows, link_graph)
+    if _response_codes(sheets["Response Codes"], rows):
+        keep.add("Response Codes")
+    if _links(sheets["Links"], post):
+        keep.add("Links")
+    if _images(sheets["Images"], crawler, post):
+        keep.add("Images")
+    if link_graph:
+        _internal_linking(sheets["Internal Linking"], crawler, post)
+        keep.add("Internal Linking")
     _site_health(sheets["Site Health"], checks)
     _discovery(sheets["Sitemap & Discovery"], crawler, rows, site)
-    _about(sheets["About This Audit"], crawler, site, avg, penalty, started, finished)
-    _all_data(sheets["All Data"], rows)
+    _about(sheets["About This Audit"], crawler, site, started, finished, link_graph)
+    _all_data(sheets["All Data"], rows, link_graph)
+    for name in list(sheets):  # a sheet with nothing to say is left out, not shown empty
+        if name not in keep:
+            wb.remove(sheets.pop(name))
+    _summary(sheets["Summary"], crawler, rows, issues, overall, site, finished, first_url_row, list(sheets), link_graph)
     for name in ("Summary", "Action Plan", "Issue URLs"):
-        sheets[name].sheet_properties.tabColor = NAVY
+        if name in sheets:
+            sheets[name].sheet_properties.tabColor = NAVY
     wb.active = 0
     wb.save(path)
     return overall
 
 
-def _summary(ws, crawler, rows, issues, overall, avg, penalty, site, finished, first_url_row):
+def _summary(ws, crawler, rows, issues, overall, site, finished, first_url_row, sheet_names, link_graph):
     host = site.get("host") or crawler.host or ""
-    scope = ("%s%s/" % (host, crawler.scope)) if crawler.scope else host
-    _title(ws, "SEO Audit Report: %s" % (scope or "URL list"),
-           "%s · %d pages crawled" % (finished.strftime("%d %b %Y, %H:%M"), len(rows)))
+    mode = crawler.s["mode"]
+    if mode == "list":
+        scope, kind = host or "URL list", "%d URLs from your list" % len(rows)
+    elif crawler.scope:
+        scope, kind = "%s%s/" % (host, crawler.scope), "folder audit · %d pages" % len(rows)
+    else:
+        scope, kind = host, "%d pages crawled" % len(rows)
+    _title(ws, "SEO Audit Report: %s" % scope, "%s · %s" % (finished.strftime("%d %b %Y, %H:%M"), kind))
     for c, w in enumerate([5, 12, 56, 24, 10, 10, 16], 1):
         ws.column_dimensions[get_column_letter(c)].width = w
 
@@ -299,11 +344,12 @@ def _summary(ws, crawler, rows, issues, overall, avg, penalty, site, finished, f
     kpis = [("Pages crawled", len(rows)),
             ("Indexable", sum(1 for r in rows if r.get("Indexable") == "Yes")),
             ("Broken (4xx/5xx)", sum(1 for x in status if isinstance(x, int) and x >= 400)),
-            ("Redirected", sum(1 for r in rows if r.get("Redirect Hops"))),
-            ("Orphan pages", sum(1 for r in rows if str(r.get("Orphan Page", "")).startswith("Yes"))),
-            ("Blocked", sum(1 for r in rows if r.get("Crawl Access", "OK") != "OK"))]
+            ("Redirected", sum(1 for r in rows if r.get("Redirect Hops")))]
+    if link_graph:
+        kpis.append(("Orphan pages", sum(1 for r in rows if str(r.get("Orphan Page", "")).startswith("Yes"))))
+    kpis.append(("Blocked", sum(1 for r in rows if r.get("Crawl Access", "OK") != "OK")))
     for k, (label, value) in enumerate(kpis):
-        col = 2 + k if k < 2 else 2 + k  # columns B..G
+        col = 2 + k  # columns B..G
         a = ws.cell(row=8, column=col, value=label)
         a.font = Font(size=9, color=MUTED)
         a.alignment = Alignment(wrap_text=True, vertical="bottom")
@@ -341,13 +387,15 @@ def _summary(ws, crawler, rows, issues, overall, avg, penalty, site, finished, f
     # How to use this report
     r1 = r0 + 13
     ws.cell(row=r1, column=2, value="How to use this report").font = Font(size=12, bold=True, color=INK)
-    guide = [("Action Plan", "Every issue, with priority, effort and how to fix it."),
-             ("Issue URLs", "One row per page per issue. Filter the Issue column to get your to-do list."),
-             ("Pages", "The key SEO fields of every page, one row each."),
-             ("Response Codes", "Errors and redirects, with the full redirect chain."),
-             ("Links", "Broken and redirecting links, and the page each one is on."),
-             ("Images", "Every image once: where it is used, its size, missing alt text or dimensions."),
-             ("All Data", "Every column the crawler collected, for advanced filtering.")]
+    guide = [(n, w) for n, w in (
+        ("Action Plan", "Every issue, with priority, effort and how to fix it."),
+        ("Issue URLs", "One row per page per issue. Filter the Issue column to get your to-do list."),
+        ("Pages", "The key SEO fields of every page, one row each."),
+        ("Response Codes", "Errors and redirects, with the full redirect chain."),
+        ("Links", "Each broken or redirecting link once, with the pages it is on."),
+        ("Images", "Images over 200 KB or without alt text, each listed once."),
+        ("Internal Linking", "Weak, deep and orphan pages, key pages and folders."),
+        ("All Data", "Every column the crawler collected, for advanced filtering.")) if n in sheet_names]
     for k, (name, what) in enumerate(guide, 1):
         a = ws.cell(row=r1 + k, column=2, value=name)
         a.hyperlink = "#'%s'!A1" % name
@@ -388,7 +436,7 @@ def _issue_urls(ws, issues, rows):
             continue
         first[x["name"]] = len(data) + 2
         for r in sorted(x["rows"], key=lambda r: r["URL"]):
-            data.append([x["name"], x["priority"], r["URL"], r.get("Final Status", ""), r.get("Indexable", ""), _detail(x["name"], r, groups)])
+            data.append([x["name"], x["priority"], r["URL"], r.get("Final Status", ""), _na(r.get("Indexable", "")), _na(_detail(x["name"], r, groups))])
     start = _table(ws, 1, ["Issue", "Priority", "URL", "Status", "Indexable", "Detail"], data, "IssueURLs",
                    [36, 10, 70, 8, 26, 70], wrap_cols=(6,))
     _paint_priority(ws, start, len(data), 2)
@@ -396,34 +444,51 @@ def _issue_urls(ws, issues, rows):
     return first
 
 
-def _pages(ws, rows):
-    headers = ["URL", "Status", "Indexable", "Title", "Title length", "Meta description", "Description length", "H1",
-               "Word count", "Canonical", "Click depth", "Inlinks", "Link Score", "Page score", "Errors", "Warnings", "Notices", "Main issue"]
-    data = []
-    for r in rows:
+def _pages(ws, rows, link_graph=True):
+    # (header, width, value) — link-graph columns only when links were followed; Core Web Vitals only when CrUX ran.
+    def main_issue(r):
         iss = sorted(_split(r.get("Issues")), key=lambda n: PRIORITY_RANK.get(priority(n), 2))
-        data.append([r["URL"], r.get("Final Status", ""), r.get("Indexable", ""), r.get("Meta Title", ""), r.get("Title Length", ""),
-                     r.get("Meta Description", ""), r.get("Description Length", ""), r.get("H1 Text", ""), r.get("Word Count", ""),
-                     r.get("Canonical URL", ""), r.get("Click Depth", ""), _count_prefix(r.get("Linked From (pages)")),
-                     r.get("Link Score (0-100)", ""), r.get("Page Score", ""), (r.get("Critical") or 0) + (r.get("High") or 0),
-                     r.get("Medium") or 0, r.get("Low") or 0, iss[0] if iss else ""])
-    first = _table(ws, 1, headers, data, "Pages", [60, 8, 24, 45, 8, 50, 8, 35, 9, 45, 8, 8, 8, 8, 8, 9, 8, 32])
+        return iss[0] if iss else ""
+    spec = [("URL", 60, lambda r: r["URL"]), ("Status", 8, lambda r: r.get("Final Status", "")),
+            ("Indexable", 24, lambda r: r.get("Indexable", "")), ("Title", 45, lambda r: r.get("Meta Title", "")),
+            ("Title length", 8, lambda r: r.get("Title Length", "")), ("Meta description", 50, lambda r: r.get("Meta Description", "")),
+            ("Description length", 8, lambda r: r.get("Description Length", "")), ("H1", 35, lambda r: r.get("H1 Text", "")),
+            ("Word count", 9, lambda r: r.get("Word Count", "")), ("Canonical", 45, lambda r: r.get("Canonical URL", ""))]
+    if link_graph:
+        spec += [("Click depth", 8, lambda r: r.get("Click Depth", "")), ("Inlinks", 8, lambda r: _count_prefix(r.get("Linked From (pages)"))),
+                 ("Link Score", 8, lambda r: r.get("Link Score (0-100)", ""))]
+    if any(r.get("Core Web Vitals") for r in rows):
+        spec += [("Core Web Vitals", 18, lambda r: r.get("Core Web Vitals", "")), ("LCP (s)", 8, lambda r: r.get("LCP (s)", "")),
+                 ("INP (ms)", 8, lambda r: r.get("INP (ms)", "")), ("CLS", 7, lambda r: r.get("CLS", ""))]
+    spec += [("Page score", 8, lambda r: r.get("Page Score", "")),
+             ("Errors", 8, lambda r: (r.get("Critical") or 0) + (r.get("High") or 0)), ("Warnings", 9, lambda r: r.get("Medium") or 0),
+             ("Notices", 8, lambda r: r.get("Low") or 0), ("Main issue", 32, main_issue)]
+    headers = [h for h, _w, _f in spec]
+    data = [[_na(f(r)) for _h, _w, f in spec] for r in rows]
+    first = _table(ws, 1, headers, data, "Pages", [w for _h, w, _f in spec])
+    col = {h: i + 1 for i, h in enumerate(headers)}
     for i, r in enumerate(rows, first):
         sc = r.get("Page Score")
         if isinstance(sc, int):
-            ws.cell(row=i, column=14).fill = FILL["good" if sc >= 80 else "warn" if sc >= 60 else "bad"]
+            ws.cell(row=i, column=col["Page score"]).fill = FILL["good" if sc >= 80 else "warn" if sc >= 60 else "bad"]
         st = r.get("Final Status")
         if st != 200:
-            ws.cell(row=i, column=2).fill = FILL["bad" if isinstance(st, int) and st >= 400 or st == "Error" else "warn"]
+            ws.cell(row=i, column=col["Status"]).fill = FILL["bad" if isinstance(st, int) and st >= 400 or st == "Error" else "warn"]
+        cwv = str(r.get("Core Web Vitals", ""))
+        if "Core Web Vitals" in col and cwv in ("Good", "Needs improvement", "Poor"):
+            ws.cell(row=i, column=col["Core Web Vitals"]).fill = FILL[{"Good": "good", "Needs improvement": "warn", "Poor": "bad"}[cwv]]
     ws.freeze_panes = "B2"
 
 
 def _response_codes(ws, rows):
+    """Returns False (sheet left out) when every page answered 200 OK directly."""
+    bad = [r for r in rows if r.get("Final Status") != 200 or r.get("Redirect Hops")]
+    if not bad:
+        return False
     _title(ws, "Response codes", "Every URL that didn't answer 200 OK directly: errors first, then redirects.")
     counts = Counter(str(r.get("Final Status", "")) for r in rows)
     first = _table(ws, 4, ["Status code", "Pages"], sorted(counts.items()), "StatusCounts", [14, 10])
     inl = lambda r: _count_prefix(r.get("Linked From (pages)"))  # noqa: E731
-    bad = [r for r in rows if r.get("Final Status") != 200 or r.get("Redirect Hops")]
     bad.sort(key=lambda r: (0 if isinstance(r.get("Final Status"), int) and r["Final Status"] >= 500 else
                             1 if isinstance(r.get("Final Status"), int) and r["Final Status"] >= 400 else 2, -inl(r)))
     top = first + len(counts) + 2
@@ -434,47 +499,95 @@ def _response_codes(ws, rows):
            data, "ResponseCodes", [60, 11, 11, 11, 60, 50, 9, 22], wrap_cols=(5,))
     ws.column_dimensions["A"].width = 60
     ws.column_dimensions["B"].width = 11
+    return True
+
+
+LINK_FIX = {"Broken": "Remove the link, or point it to a working page (or 301-redirect the missing page to its closest match).",
+            "Redirect": "Point the link straight to the final URL, so visitors and crawlers skip the redirect.",
+            "Links to noindex": "Link to an indexable page instead, or make the target indexable if it should rank.",
+            "Links to canonicalised": "Link straight to the canonical URL, the page that ranks."}
 
 
 def _links(ws, post):
-    order = {"Broken": 0, "Redirect": 1}
-    data = sorted((list(b) for b in post.broken_rows), key=lambda b: (order.get(b[7], 2), -(b[1] if isinstance(b[1], int) else 0)))
-    first = _table(ws, 1, ["Found on page", "Pages", "Link URL", "Anchor text", "Where", "Type", "Status", "Result", "How to fix"],
-                   data, "Links", [50, 7, 55, 28, 18, 10, 22, 20, 60], wrap_cols=(9,))
-    for i, b in enumerate(data, first):
-        ws.cell(row=i, column=8).fill = FILL["bad" if b[7] == "Broken" else "warn" if b[7] == "Redirect" else "grey"]
-    ws.freeze_panes = "A2"
+    """One row per problem link URL, with the pages it is on. Returns False (sheet left out) when there are none."""
+    groups = {}
+    for b in post.broken_rows:
+        found, pages, url, anchor, where, typ, status, result = b[:8]
+        g = groups.setdefault((url, result), {"url": url, "result": result, "status": status, "type": typ, "pages": 0,
+                                             "on": [], "anchors": Counter(), "where": set()})
+        g["pages"] += pages if isinstance(pages, int) else 1
+        if found not in g["on"]:
+            g["on"].append(found)
+        if anchor:
+            g["anchors"][anchor] += 1
+        g["where"].add(where)
+    main = [g for g in groups.values() if g["result"] != "Couldn't verify"]
+    unverified = [g for g in groups.values() if g["result"] == "Couldn't verify"]
+    if not main and not unverified:
+        return False
+    order = {"Broken": 0, "Redirect": 1, "Links to noindex": 2, "Links to canonicalised": 3}
+    main.sort(key=lambda g: (order.get(g["result"], 9), -g["pages"]))
+    _title(ws, "Links to fix", "Each problem link once: what's wrong, how many pages it is on and which ones.")
+    row_of = lambda g: [g["result"], g["url"], g["status"], g["type"], g["pages"],  # noqa: E731
+                        _url_list(g["on"], total=max(g["pages"], len(g["on"]))) if g["pages"] > len(g["on"]) or len(g["on"]) > MAX_LINKS
+                        else ", ".join(g["on"]),
+                        g["anchors"].most_common(1)[0][0] if g["anchors"] else "", " / ".join(sorted(g["where"])),
+                        LINK_FIX.get(g["result"], "")]
+    headers = ["Problem", "Link URL", "Status", "Type", "On pages", "Pages (up to 10)", "Anchor text", "Where", "How to fix"]
+    widths = [18, 55, 24, 10, 9, 70, 28, 22, 55]
+    top = 4
+    if main:
+        first = _table(ws, top, headers, [row_of(g) for g in main], "Links", widths, wrap_cols=(6, 9))
+        for i, g in enumerate(main, first):
+            ws.cell(row=i, column=1).fill = FILL["bad" if g["result"] == "Broken" else "warn"]
+        top = first + len(main) + 2
+    if unverified:
+        ws.cell(row=top - 1, column=1, value="Couldn't verify: these sites refuse automated checks (open them in a browser to be sure)").font = \
+            Font(size=11, bold=True, color=INK)
+        _table(ws, top, ["Link URL", "Status", "On pages", "Pages (up to 10)"],
+               [[g["url"], g["status"], g["pages"], _url_list(g["on"], total=max(g["pages"], len(g["on"])))] for g in unverified],
+               "LinksUnverified", wrap_cols=(4,))
+        if not main:
+            for c, w in enumerate([55, 24, 9, 70], 1):
+                ws.column_dimensions[get_column_letter(c)].width = w
+    ws.freeze_panes = "A5"
+    return True
 
 
 def _images(ws, crawler, post):
-    used, alt, dims, size = Counter(), Counter(), Counter(), {}
-    example = {}
+    """Only images that need work: over 200 KB, or missing alt text. Returns False (sheet left out) when there are none."""
+    used, alt, size, example = Counter(), Counter(), {}, {}
     for r, ex in zip(crawler.rows, crawler.extras):
         for u in ex.get("images") or []:
             used[u] += 1
             example.setdefault(u, r["URL"])
-        for u in [x.strip() for x in str(r.get("Images Missing Alt (URLs)", "") or "").split(", ") if x.strip().startswith("http")]:
+        for u in _urls_in(r.get("Images Missing Alt (URLs)")):
             alt[u] += 1
-            example.setdefault(u, r["URL"])
-        for u in [x.strip() for x in str(r.get("Images Missing Width/Height (URLs)", "") or "").split(", ") if x.strip().startswith("http")]:
-            dims[u] += 1
             example.setdefault(u, r["URL"])
         for u, num, unit in re.findall(r"(https?://\S+?) \(([\d.]+) (KB|MB)\)", str(r.get("Heavy Images (200 KB+)", "") or "")):
             size[u] = round(float(num) * (1024 if unit == "MB" else 1))
+            example.setdefault(u, r["URL"])
     for key, res in (post.res or {}).items():
         if key.startswith("img|") and res.get("s"):
             for u in example:
                 if norm(u) == key[4:]:
                     size.setdefault(u, round(res["s"] / 1024))
-    imgs = sorted(example, key=lambda u: (-alt[u], -dims[u], -used[u]))
-    data = [[u, max(used[u], alt[u], dims[u]), example[u], size.get(u, ""), alt[u], dims[u],
-             "Yes" if isinstance(size.get(u), int) and size[u] >= 200 else ""] for u in imgs]
-    first = _table(ws, 1, ["Image URL", "Pages using it", "Example page", "Size (KB)", "Pages missing alt", "Pages missing width/height",
-                           "Heavy (200 KB+)"], data, "Images", [70, 10, 55, 10, 12, 14, 10])
+    heavy = lambda u: isinstance(size.get(u), (int, float)) and size[u] >= 200  # noqa: E731
+    imgs = [u for u in example if heavy(u) or alt[u]]
+    if not imgs:
+        return False
+    imgs.sort(key=lambda u: (not heavy(u), -(size.get(u) or 0), -alt[u], -used[u]))
+    fmt = lambda kb: "%.1f MB" % (kb / 1024) if kb >= 1024 else "%d KB" % kb  # noqa: E731
+    data = [[u, max(used[u], alt[u], 1), example[u], "Yes (%s)" % fmt(size[u]) if heavy(u) else "", alt[u] or ""] for u in imgs]
+    first = _table(ws, 1, ["Image URL", "Pages using it", "Example page", "Heavy (over 200 KB)", "Pages where alt text is missing"],
+                   data, "Images", [70, 10, 55, 16, 14])
     for i, d in enumerate(data, first):
-        if d[6]:
-            ws.cell(row=i, column=7).fill = FILL["bad"]
+        if d[3]:
+            ws.cell(row=i, column=4).fill = FILL["bad"]
+        if d[4]:
+            ws.cell(row=i, column=5).fill = FILL["warn"]
     ws.freeze_panes = "A2"
+    return True
 
 
 def _site_health(ws, checks):
@@ -503,49 +616,72 @@ def _discovery(ws, crawler, rows, site):
     ws.freeze_panes = "A2"
 
 
-def _about(ws, crawler, site, avg, penalty, started, finished):
+def _about(ws, crawler, site, started, finished, link_graph=True):
     s = crawler.s
     _title(ws, "About this audit")
-    rows = []
     d = crawler.discovery
-    secs = (finished - started).seconds
-    rows += [("Website", site.get("host") or crawler.host), ("Mode", {"domain": "Whole site", "list": "URL list"}.get(s["mode"], s["mode"]) +
-              (" (folder %s/)" % crawler.scope if crawler.scope else "")),
-             ("Audit date", finished.strftime("%d %b %Y, %H:%M")), ("Time taken", "%d min %d s · %d requests" % (secs // 60, secs % 60, crawler.fetcher.count)),
-             ("Discovery", "Start page 1 · Sitemap %d · Links on pages %d · Your list %d · Blocked by robots.txt %d" % (
-                 d["sitemap"], d["crawl"], d["listed"], d["blocked"])),
-             ("Speed setting", "%s · ended at %d pages at a time%s" % (s.get("speed", "Medium"), crawler.conc,
-                                                                     " · slowed down %d times: %s" % (crawler.slowdowns, crawler.slow_reason) if crawler.slowdowns else "")),
-             ("JavaScript rendering", crawler.render_note or "On: %d pages rendered" % crawler.rendered),
-             ("robots.txt", "Respected" if s.get("respect_robots", True) else "Ignored (site owner's choice)"),
-             ("Priorities", "Critical and High = Errors · Medium = Warnings · Low = Notices"),
+    secs = int((finished - started).total_seconds())
+    if s["mode"] == "list":
+        mode = "Your list of URLs (links are not followed)"
+    elif crawler.scope:
+        mode = "Folder %s/%s" % (crawler.scope, " (with the site-wide checks)" if site["site_wide"] else "")
+    else:
+        mode = "Whole website"
+    found = [("Your list", d["listed"]), ("Start page", d["start"]), ("XML sitemap", d["sitemap"]), ("Links on pages", d["crawl"]),
+             ("Blocked by robots.txt", d["blocked"])]
+    rows = [("Website", site.get("host") or crawler.host), ("Audit type", mode),
+            ("Audit date", finished.strftime("%d %b %Y, %H:%M")),
+            ("Time taken", "%d min %d s\n%d requests" % (secs // 60, secs % 60, crawler.fetcher.count)),
+            ("URLs found from", "\n".join("%s: %d" % (n, v) for n, v in found if v)),
+            ("Speed", "%s, ended at %d pages at a time%s" % (s.get("speed", "Medium"), crawler.conc,
+                                                           "\nSlowed down %d times: %s" % (crawler.slowdowns, crawler.slow_reason) if crawler.slowdowns else "")),
+            ("robots.txt", "Respected" if s.get("respect_robots", True) else "Ignored (site owner's choice)")]
+    if s.get("render_js", "off") != "off":
+        rows.append(("JavaScript rendering", crawler.render_note or "%d pages rendered" % crawler.rendered))
+    rows += [("Priorities", "Errors = Critical and High\nWarnings = Medium\nNotices = Low"),
              ("Scope 'Site-wide (template fix)'", "The issue is on 80% or more of the pages, so it usually comes from a shared template and is fixed once."),
-             ("Effort", "An estimate: Low = one fix or a few pages · Medium = several pages · High = many pages to edit one by one")]
-    for k, (a, b) in enumerate(rows, 3):
+             ("Effort", "An estimate:\nLow = one fix or a few pages\nMedium = several pages\nHigh = many pages to edit one by one")]
+    k = 3
+    for a, b in rows:
         ws.cell(row=k, column=1, value=a).font = Font(bold=True, color=INK)
+        ws.cell(row=k, column=1).alignment = TOP
         ws.cell(row=k, column=2, value=_v(b)).alignment = WRAP
-    k = len(rows) + 5
+        ws.row_dimensions[k].height = 15 * (str(b).count("\n") + 1)
+        k += 1
+    k += 1
     ws.cell(row=k, column=1, value="What was checked").font = Font(size=12, bold=True, color=INK)
-    drop = re.compile(r"Heading hierarchy|Split anchor|_blank without noopener|Contact signals|Search Console|GA4|search traffic|Core Web Vitals|CrUX|Homepage response time|Text-to-HTML|only work with JavaScript|'Load more'|Products|Expected schema|Low product", re.I)
+    # Only what this audit type really checked: no site-wide checks for a folder or a list, no link graph for a list,
+    # nothing that was removed from SEO Lens.
+    drop = (r"Heading hierarchy|Split anchor|_blank without noopener|Contact signals|Search Console|GA4|search traffic|Core Web Vitals|CrUX|"
+            r"Homepage response time|Text-to-HTML|only work with JavaScript|'Load more'|Products|Expected schema|Low product|"
+            r"Author|Published|modified|[Dd]ate|JavaScript-rendering|Script count|[Pp]erformance risk|width|height|Bulk")
+    if not link_graph:
+        drop += r"|[Cc]lick depth|[Oo]rphan|Link Score|PageRank|inlink|[Ll]inked from"
+    drop_rx = re.compile(drop)
     for group, items in _RULES["AUDIT_PARAMETERS"]:
-        if group in ("Optional APIs", "E-commerce"):
+        if group in ("Optional APIs", "E-commerce") or (group == "Site-wide" and not site["site_wide"]):
             continue
-        items = [x for x in items if not drop.search(x)]
+        items = [x for x in items if not drop_rx.search(x)]
+        if group == "Performance signals" and any(r.get("Core Web Vitals") for r in crawler.rows):
+            items.append("Core Web Vitals from real Chrome users (CrUX): LCP, INP, CLS")
         if items:
             k += 1
             ws.cell(row=k, column=1, value=group).font = Font(bold=True, color=INK)
-            ws.cell(row=k, column=2, value=" · ".join(items)).alignment = WRAP
+            ws.cell(row=k, column=1).alignment = TOP
+            ws.cell(row=k, column=2, value="\n".join(items)).alignment = WRAP
+            ws.row_dimensions[k].height = 15 * len(items)
     ws.column_dimensions["A"].width = 30
     ws.column_dimensions["B"].width = 110
 
 
-def _all_data(ws, rows):
-    for c, h in enumerate(COLUMNS, 1):
+def _all_data(ws, rows, link_graph=True):
+    columns = _useful_columns(COLUMNS, rows, link_graph)
+    for c, h in enumerate(columns, 1):
         cell = ws.cell(row=1, column=c, value=h)
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = FILL["navy"]
         cell.alignment = WRAP
-    image_cols = ["Images Missing Alt (URLs)", "Images Missing Width/Height (URLs)", "Heavy Images (200 KB+)"]  # order in COLUMNS
+    image_cols = [c for c in ("Images Missing Alt (URLs)", "Heavy Images (200 KB+)") if c in columns]  # order in COLUMNS
     for i, r in enumerate(rows, 2):
         shown = {}  # image URL -> the column it was first listed in, on this page
         cells = {}
@@ -565,13 +701,14 @@ def _all_data(ws, rows):
             cells[col] = "%d%s: %s" % (len(urls), " (%s)" % note if note else "", ", ".join(parts) or "no new images")
             for u in new:
                 shown[u] = col
-        for c, col in enumerate(COLUMNS, 1):
+        for c, col in enumerate(columns, 1):
             v = cells[col] if col in cells else r.get(col, "")
+            v = _na(v)  # never show N/A: a cell that doesn't apply stays empty
             if isinstance(v, str) and len(v) > 1000:
                 v = v[:1000] + " …"
             ws.cell(row=i, column=c, value=_v(v))
-    for c, col in enumerate(COLUMNS, 1):
+    for c, col in enumerate(columns, 1):
         ws.column_dimensions[get_column_letter(c)].width = 45 if col in ("URL", "Final URL", "Meta Title", "Issues") else 18
-    ws.auto_filter.ref = "A1:%s%d" % (get_column_letter(len(COLUMNS)), len(rows) + 1)
+    ws.auto_filter.ref = "A1:%s%d" % (get_column_letter(len(columns)), len(rows) + 1)
     ws.freeze_panes = "B2"
-    _colour_pages(ws, rows)
+    _colour_pages(ws, rows, columns)

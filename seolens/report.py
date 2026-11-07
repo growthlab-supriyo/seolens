@@ -17,16 +17,19 @@ COLUMNS = [
     "Meta Title", "Title Length", "Meta Description", "Description Length", "Canonical URL", "Canonical Target Status", "Meta Robots",
     "HTML Lang", "OG Locale", "Hreflang Tags", "Hreflang Issues", "Viewport", "Open Graph", "Twitter Card",
     "H1 Count", "H1 Text", "Title vs H1", "H2 Tags (body)", "H3 Tags (body)", "Word Count", "Archive Page",
-    "Images Missing Alt (URLs)", "Images Missing Width/Height (URLs)", "Heavy Images (200 KB+)",
+    "Images Missing Alt (URLs)", "Heavy Images (200 KB+)",
     "Linked From (pages)", "Internal Links on Page (content)", "Internal Link Anchors (content)", "External Links on Page (content)", "External Link Anchors (content)",
     "Link URL Types", "Broken Links (on page)", "Orphan Page", "Click Depth", "Link Score (0-100)",
-    "Scripts", "Render-Blocking Scripts", "Third-Party Domains", "Performance Risk",
-    "CMS / Platform", "Tracking Detected", "JS-Rendering Risk",
+    "Render-Blocking Scripts", "Third-Party Domains", "Core Web Vitals", "LCP (s)", "INP (ms)", "CLS",
+    "CMS / Platform", "Tracking Detected",
     "Schema Types", "Schema Parse Errors", "Schema Missing Properties", "Breadcrumbs",
-    "Author", "Published / Modified", "Date Check", "Placeholder Text",
+    "Placeholder Text",
     "Duplicate Title", "Duplicate Description", "Duplicate H1", "Duplicate Content", "Near Duplicate",
     "Critical", "High", "Medium", "Low", "Page Score", "Issues",
 ]
+# Still collected (JavaScript-risk drives Auto rendering) but never shown in a report or the app.
+HIDDEN_COLUMNS = ["Author", "Published / Modified", "Date Check", "JS-Rendering Risk", "Scripts", "Performance Risk",
+                  "Images Missing Width/Height (URLs)", "Contact Signals"]
 NAVY = PatternFill("solid", fgColor="1F3864")
 FILLS = {k: PatternFill("solid", fgColor=v) for k, v in {"red": "F4CCCC", "amber": "FFF2CC", "green": "D9EAD3", "dgreen": "B7E1CD", "peach": "FCE5CD",
                                                         "blue": "E8F0FE", "grey": "EEEEEE"}.items()}
@@ -259,11 +262,12 @@ def _summary(ws, crawler, rows, checks, site, avg, penalty, overall, started, fi
             row[3].number_format = "0%"
 
 
-def _colour_pages(ws, rows):
-    idx = {c: i + 1 for i, c in enumerate(COLUMNS)}
+def _colour_pages(ws, rows, columns=None):
+    idx = {c: i + 1 for i, c in enumerate(columns or COLUMNS)}
     for n, r in enumerate(rows, 2):
         def paint(col, fill):
-            ws.cell(row=n, column=idx[col]).fill = FILLS[fill]
+            if col in idx:
+                ws.cell(row=n, column=idx[col]).fill = FILLS[fill]
         st = r.get("Final Status")
         if st not in (200, "", None):
             paint("Final Status", "red")
@@ -281,7 +285,7 @@ def _colour_pages(ws, rows):
             paint("Title vs H1", "amber")
         elif tv.startswith("Different"):
             paint("Title vs H1", "red")
-        for col in ("OG Locale", "Archive Page", "Canonical Target Status", "Hreflang Issues", "Date Check"):
+        for col in ("OG Locale", "Archive Page", "Canonical Target Status", "Hreflang Issues"):
             if "⚠" in str(r.get(col, "")):
                 paint(col, "amber")
         hv = str(r.get("Heavy Images (200 KB+)", ""))
@@ -405,19 +409,28 @@ def _internal_linking(ws, crawler, post):
             push([p["u"], p["depth"] if p["depth"] is not None else "Not reachable" if p["unreach"] else "", p["inl"], p["score"], "",
                   "⚠ Buried: link it from the menu, homepage or top pages (1–2 clicks)" if buried else "Few links: add links from related pages" if (p["inl"] or 0) < 3 else "OK"], "warn" if buried else None)
         push([])
-    push(["FOLDERS", "Pages", "Indexable", "Avg click depth", "Avg linked from", "Avg Link Score"], "section")
+    # A page lives in the folder above it: /blog/post/ is in /blog/, and /about/ is a page at the top level, not a folder.
     groups = {}
     for p in pages:
-        dirs = p["segs"][:-1] if p["file"] else p["segs"]
+        dirs = p["segs"][:-1]
         ks = ["/"] + (["/" + dirs[0] + "/"] if dirs else []) + (["/" + dirs[0] + "/" + dirs[1] + "/"] if len(dirs) > 1 else [])
         groups.setdefault(ks[-1], []).append(p)
         if len(ks) == 3:
             groups.setdefault(ks[1], []).append(p)
-    for fo in sorted(groups):
-        g = groups[fo]
-        level = 0 if fo == "/" else len([x for x in fo.split("/") if x])
-        push([("   └ " if level == 2 else "") + fo, len(g), sum(1 for p in g if p["idx"]), avg([p["depth"] for p in g]), avg([p["inl"] for p in g]), avg([p["score"] for p in g])],
-             None if level == 2 else "folder")
+    # Only folders that hold several pages; in a folder audit, only the sub-folders inside it (not the folder itself or its parents).
+    inside = (lambda fo: fo.lower().startswith(crawler.scope + "/") and fo.rstrip("/").lower() != crawler.scope) if crawler.scope else (lambda fo: True)
+    real = sorted(fo for fo, g in groups.items() if len(g) >= 2 and fo != "/" and inside(fo))
+    if real:
+        push(["FOLDERS", "Pages", "Indexable", "Avg click depth", "Avg linked from", "Avg Link Score"], "section")
+        if len(groups.get("/", [])) >= 2 and not crawler.scope:
+            g = groups["/"]
+            push(["/ (pages at the top level)", len(g), sum(1 for p in g if p["idx"]), avg([p["depth"] for p in g]), avg([p["inl"] for p in g]),
+                  avg([p["score"] for p in g])], "folder")
+        for fo in real:
+            g = groups[fo]
+            level = len([x for x in fo.split("/") if x])
+            push([("   └ " if level == 2 else "") + fo, len(g), sum(1 for p in g if p["idx"]), avg([p["depth"] for p in g]), avg([p["inl"] for p in g]), avg([p["score"] for p in g])],
+                 None if level == 2 else "folder")
     for i, row in enumerate(out, 1):
         for c, v in enumerate(row, 1):
             ws.cell(row=i, column=c, value=_v(v))

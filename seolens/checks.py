@@ -14,7 +14,11 @@ HEAVY_KB = 200
 DEEP_CLICKS = 4
 NEAR_DUP = 0.8
 # Checks taken out of the audit (no SEO value for the reader); also dropped from crawls saved earlier.
-REMOVED_ISSUES = {"Heading levels skipped", "target=_blank without noopener", "Split anchor links"}
+REMOVED_ISSUES = {"Heading levels skipped", "target=_blank without noopener", "Split anchor links",
+                  # dates, guessed performance and JavaScript risk: removed on request (CrUX measures real performance)
+                  "Conflicting dates", "Modified before published", "Future date", "Date changes on every load",
+                  "Title year newer than content", "Dates missing from meta & schema", "Content may depend on JavaScript",
+                  "High performance risk", "Images missing width/height"}
 PRIORITY_RANK = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
 PRIORITY_WEIGHT = {"Critical": 20, "High": 8, "Medium": 3, "Low": 1}
 EXTRA_ISSUES = {

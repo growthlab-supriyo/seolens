@@ -12,12 +12,11 @@ if __package__ in (None, ""):  # `streamlit run seolens/app.py` from a source ch
 import pandas as pd
 import streamlit as st
 
-from seolens import DEMO_MAX_URLS, MAX_URLS, __version__
+from seolens import MAX_URLS, ONLINE_MAX_URLS, __version__
 from seolens.store import Store
 from seolens.worker import pid_alive, start_worker
 
-DEMO = os.environ.get("SEOLENS_DEMO") == "1"   # public demo: small crawls only
-DEMO_MAX = DEMO_MAX_URLS
+ONLINE = os.environ.get("SEOLENS_ONLINE") == "1"   # the shared online version: smaller crawls, no secrets, no JS rendering
 LIVE = ("queued", "running", "finishing")
 STATUS_ICON = {"queued": "⏳", "running": "🕷️", "finishing": "🧮", "done": "✅", "paused": "⏸", "stopped": "⏹",
                "failed": "❌", "interrupted": "⚠️"}
@@ -36,8 +35,21 @@ def store():
 db = store()
 
 
-def fmt_time(ts):
-    return datetime.fromtimestamp(ts).strftime("%d %b %H:%M") if ts else ""
+def viewer_tz():
+    """The visitor's own time zone (from the browser), so every device shows its local time, not the server's."""
+    from datetime import timedelta, timezone
+    from zoneinfo import ZoneInfo
+    try:
+        if st.context.timezone:
+            return ZoneInfo(st.context.timezone)
+    except Exception:  # noqa: BLE001 - unknown zone name: fall back to the offset
+        pass
+    off = getattr(st.context, "timezone_offset", None)
+    return timezone(timedelta(minutes=-off)) if isinstance(off, (int, float)) else None
+
+
+def fmt_time(ts, fmt="%d %b %H:%M"):
+    return datetime.fromtimestamp(ts, viewer_tz()).strftime(fmt) if ts else ""
 
 
 def run_label(r):
@@ -57,28 +69,38 @@ def check_alive(run):
 with st.sidebar:
     st.title("🔎 SEO Lens")
     st.caption("Free, open-source SEO crawler · v%s" % __version__)
+    # Outside the form, so choosing "List of URLs" shows the URL box at once.
+    mode = st.radio("What to crawl", ["Website or folder", "List of URLs"], horizontal=True)
     with st.form("new"):
-        mode = st.radio("What to crawl", ["Website or folder", "List of URLs"], horizontal=True)
-        site = st.text_input("Website", placeholder="example.com or example.com/blog/")
-        urls = st.text_area("URLs (one per line)", height=100, placeholder="Only for 'List of URLs'")
-        cap = DEMO_MAX if DEMO else MAX_URLS
+        site, urls = "", ""
+        if mode == "List of URLs":
+            urls = st.text_area("URLs (one per line)", height=120, placeholder="https://example.com/page-1\nhttps://example.com/page-2")
+        else:
+            site = st.text_input("Website", placeholder="example.com or example.com/blog/")
+        cap = ONLINE_MAX_URLS if ONLINE else MAX_URLS
         max_pages = st.number_input("Maximum URLs", 1, cap, min(500, cap), step=100)
         speed = st.select_slider("Speed", ["Polite", "Medium", "Fast"], "Medium",
                                  help="Starting pages at a time: Polite 4, Medium 10, Fast 20. It adjusts by itself: "
                                       "slower when the server gets slow or asks to slow down, faster when it answers quickly.")
+        render, crux_key = "off", ""
         with st.expander("More settings"):
-            render = st.selectbox("JavaScript rendering (optional)", ["off", "auto", "all"], disabled=DEMO,
-                                  format_func={"off": "Off: raw HTML only (fastest)", "auto": "Auto: start page + pages that look empty",
-                                               "all": "Every page: compare raw vs rendered"}.get,
-                                  help="Needs Playwright (pip install \"seolens[js]\" then playwright install chromium). "
-                                       "auto = start page + pages that look empty without JavaScript.")
+            if not ONLINE:  # JavaScript rendering needs a browser on the computer: installed version only
+                render = st.selectbox("JavaScript rendering (optional)", ["off", "auto", "all"],
+                                      format_func={"off": "Off (default): raw HTML only, fastest", "auto": "Auto: start page + pages that look empty",
+                                                   "all": "Every page: compare raw vs rendered"}.get,
+                                      help="Needs Playwright: pip install \"seolens[js]\" then playwright install chromium.")
             follow = st.checkbox("Follow links", True)
-            robots = st.checkbox("Respect robots.txt", True, help="Turn off only for a site you own.", disabled=DEMO)
+            robots = st.checkbox("Respect robots.txt", True, help="Turn off only for a site you own.", disabled=ONLINE)
             external = st.checkbox("Check external links", True)
             query = st.checkbox("Crawl URLs with ?parameters", False)
             sitewide = st.checkbox("Folder crawls: also check site-wide health", False)
+            crux_key = st.text_input(
+                "CrUX API key (optional)", type="password",
+                help="Adds real-user Core Web Vitals (LCP, INP, CLS) for each page from Google's Chrome UX Report. Free key: "
+                     "console.cloud.google.com → create a project → APIs & Services → Library → enable \"Chrome UX Report API\" → "
+                     "Credentials → Create credentials → API key." + (" Used for this crawl only and never saved." if ONLINE else ""))
         auth_headers = auth_user = auth_pass = ""
-        if not DEMO:  # never ask for secrets on a shared public server
+        if not ONLINE:  # never ask for secrets on a shared public server
             with st.expander("Authorized access (sites you own)"):
                 st.caption("For a site you own or may audit that sits behind Cloudflare or a login. Create a rule on your side that "
                            "lets these requests through, then add its secret here. Sent only to this website, never to other sites.")
@@ -89,9 +111,16 @@ with st.sidebar:
     if go:
         settings = {"mode": "list" if mode == "List of URLs" else "domain", "site": site.strip(),
                     "urls": [u.strip() for u in urls.splitlines() if u.strip()][:cap], "max_pages": int(max_pages),
-                    "speed": speed, "render_js": "off" if DEMO else render, "follow_links": follow, "respect_robots": robots,
+                    "speed": speed, "render_js": "off" if ONLINE else render, "follow_links": follow, "respect_robots": robots,
                     "check_external": external, "include_query": query, "site_wide_health": sitewide,
-                    "auth_headers": auth_headers, "auth_user": auth_user.strip(), "auth_pass": auth_pass}
+                    "auth_headers": auth_headers, "auth_user": auth_user.strip(), "auth_pass": auth_pass,
+                    "tz": str(getattr(viewer_tz(), "key", "") or "")}
+        settings["tz_offset"] = getattr(st.context, "timezone_offset", None)
+        if crux_key.strip():
+            if ONLINE:
+                settings["crux_requested"] = True
+            else:
+                settings["crux_key"] = crux_key.strip()  # your own computer: kept with the crawl so a resume can use it
         if settings["mode"] == "domain" and not settings["site"]:
             st.error("Enter a website.")
         elif settings["mode"] == "list" and not settings["urls"]:
@@ -100,42 +129,43 @@ with st.sidebar:
             st.error("A crawl is already running. Pause or finish it first.")
         else:
             rid = db.create_run(settings)
-            db.update_run(rid, pid=start_worker(rid))
+            # Online: the key goes only to the crawler process's memory, never into the database.
+            db.update_run(rid, pid=start_worker(rid, crux_key=crux_key.strip() if ONLINE else ""))
             st.session_state.run = rid
             st.session_state.setdefault("my_runs", []).append(rid)
             st.rerun()
 
     st.divider()
     history = db.runs(50)
-    if DEMO:  # on the shared demo, each visitor sees only the crawls started in their own browser session
+    if ONLINE:  # on the shared online version, each visitor sees only the crawls started in their own browser session
         history = [r for r in history if r["id"] in st.session_state.get("my_runs", [])]
     if history:
         ids = [r["id"] for r in history]
         cur = st.session_state.get("run", ids[0])
         st.session_state.run = st.radio("Crawls", ids, index=ids.index(cur) if cur in ids else 0,
                                         format_func=lambda i: run_label(next(r for r in history if r["id"] == i)))
-    if DEMO:
-        st.info("Demo: up to %d URLs, no JavaScript rendering. For 10,000-URL crawls, install it free on your computer: "
-                "`pipx install seolens`" % DEMO_MAX)
+    if ONLINE:
+        st.info("Online version: up to %d URLs per crawl. For 10,000-URL crawls and JavaScript rendering, install it free "
+                "on your computer: `pipx install seolens`" % ONLINE_MAX_URLS)
 
 
 # ---------------------------------------------------------------- main area
 
 rid = st.session_state.get("run")
-if DEMO and rid not in st.session_state.get("my_runs", []):
+if ONLINE and rid not in st.session_state.get("my_runs", []):
     rid = None
 if not rid or not db.run(rid):
     st.header("A free SEO crawler you can trust")
-    if DEMO:
+    if ONLINE:
         st.markdown(
-            "This is the **online demo**: up to **%d URLs** per crawl, without JavaScript rendering. The full version "
-            "crawls up to **%s URLs** and runs free on your own computer: `pipx install seolens`, then `seolens`.\n\n"
+            "This online version crawls up to **%d URLs** per crawl. Installed on your own computer, SEO Lens crawls up to "
+            "**%s URLs** and can render JavaScript: `pipx install seolens`, then `seolens`.\n\n"
             "- Checks status codes, redirects, titles, descriptions, headings, canonicals, hreflang, schema, images, "
             "internal links, click depth, orphan pages, duplicates and near-duplicates.\n"
-            "- Crawls you start here are visible only to you, and are deleted when the demo restarts. No account, no tracking.\n"
+            "- Crawls you start here are visible only to you, and are deleted when the app restarts. No account, no tracking.\n"
             "- **Honest crawling.** It says who it is, respects robots.txt, slows down when a site asks, and reports blocked "
             "pages instead of hiding them.\n\n"
-            "Enter a website on the left to start." % (DEMO_MAX, f"{MAX_URLS:,}"))
+            "Enter a website on the left to start." % (ONLINE_MAX_URLS, f"{MAX_URLS:,}"))
         st.stop()
     st.markdown(
         "- Crawls up to **%s URLs**: status codes, redirects, titles, descriptions, headings, canonicals, hreflang, "
@@ -174,22 +204,23 @@ def live_view(run_id):
     elif run["control"]:
         b[0].info("Pausing…" if run["control"] == "pause" else "Finishing…")
     with st.expander("Log", expanded=True):
-        st.code("\n".join("%s  %s" % (datetime.fromtimestamp(t).strftime("%H:%M:%S"), m) for t, m in db.logs(run_id, 12)) or "…",
-                language=None)
+        st.code("\n".join("%s  %s" % (fmt_time(t, "%H:%M:%S"), m) for t, m in db.logs(run_id, 12)) or "…", language=None)
 
 
 @st.cache_data(max_entries=4)
 def pages_frame(run_id, updated):
     rows = db.page_rows(run_id)
     df = pd.DataFrame(rows)
-    df = df.drop(columns=[c for c in df.columns if c.startswith("_")], errors="ignore")
+    from seolens.report import HIDDEN_COLUMNS
+    df = df.drop(columns=[c for c in df.columns if c.startswith("_") or c in HIDDEN_COLUMNS], errors="ignore")
     for col in df.columns:  # mixed columns (numbers and "" or text): numbers where they all are, else text
         if df[col].dtype == object:
             filled = df[col].map(lambda v: v not in ("", None))
             nums = pd.to_numeric(df[col].where(filled), errors="coerce")
             df[col] = nums if nums.notna().sum() == filled.sum() and filled.any() else df[col].map(
                 lambda v: "" if v is None else v if isinstance(v, str) else str(v))
-    return df
+    blank = lambda v: v in ("", None) or (isinstance(v, str) and v.startswith("N/A")) or (isinstance(v, float) and v != v)  # noqa: E731
+    return df[[c for c in df.columns if c == "URL" or not df[c].map(blank).all()]]  # columns that don't apply are left out
 
 
 run = check_alive(db.run(rid))
@@ -213,6 +244,8 @@ if run["status"] in ("paused", "interrupted", "stopped"):
     if c[1].button("📄 Build report now"):
         db.update_run(rid, status="queued", pid=start_worker(rid, resume=True, finish=True))
         st.rerun()
+    if ONLINE and run["settings"].get("crux_requested"):
+        st.caption("Core Web Vitals need the CrUX key again after a resume: it is never saved on the online version.")
 if run["status"] == "failed":
     st.error(run["error"].split("\n")[0])
     with st.expander("Details"):
@@ -236,10 +269,15 @@ c[4].metric("5xx", int((status >= 500).sum()))
 c[5].metric("Blocked / not readable", int((access != "OK").sum()))
 
 if res.get("xlsx") and Path(res["xlsx"]).exists():
-    d = st.columns([1, 1, 4])
+    d = st.columns([1, 1, 1, 3])
     d[0].download_button("⬇ Excel report", Path(res["xlsx"]).read_bytes(), Path(res["xlsx"]).name, type="primary")
     if res.get("map") and Path(res["map"]).exists():
         d[1].download_button("⬇ Site architecture map", Path(res["map"]).read_bytes(), Path(res["map"]).name, mime="text/html")
+    with d[2].popover("Open in Google Sheets"):
+        st.markdown("1. Download the **Excel report**.\n"
+                    "2. Open [drive.google.com](https://drive.google.com) → **New** → **File upload** → choose the report.\n"
+                    "3. Right-click the uploaded file → **Open with** → **Google Sheets**.\n\n"
+                    "Every tab, colour and filter is kept. To keep it as a Google Sheet, use **File** → **Save as Google Sheets**.")
 elif run["status"] != "done":
     st.caption("The Excel report is written when the crawl finishes.")
 

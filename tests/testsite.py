@@ -66,7 +66,13 @@ def make_server(pages=60, slow_s=0.0, latency_s=0.0, every_7th_s=0.0):
                     links += '<a href="/old">old</a> <a href="/slow">slow</a> <a href="/limited">limited</a> ' \
                              '<a href="/members">members</a> <a href="/challenge">challenge</a> <a href="/p/9999">missing</a> <a href="/private/x">private</a>'
                 text = ("Gardening tools page %d. " % n) + "Soil spade rake hoe pruner watering can " * 25
+                # Every page: one large photo (with alt) and one small icon without alt text.
+                text += ' <img src="/img/hero.jpg" alt="Garden tools" width="800" height="400"> <img src="/img/icon.png">'
                 return self.send(200, PAGE.format(n=n, port=port, path=p, text=text, links=links))
+            if p == "/img/hero.jpg":
+                return self.send(200, "x" * 300 * 1024, "image/jpeg")
+            if p == "/img/icon.png":
+                return self.send(200, "x" * 2048, "image/png")
             return self.send(404, "not found")
 
     srv = ThreadingHTTPServer(("127.0.0.1", 0), H)

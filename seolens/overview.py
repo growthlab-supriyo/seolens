@@ -138,9 +138,9 @@ def overview(df, result, access):
         else:
             box.success("No page-level issues found.")
     with right:
-        box = _card("Pages by click depth")
         depth = pd.to_numeric(df.get("Click Depth"), errors="coerce").dropna()
-        if len(depth):
+        if len(depth):  # a URL-list audit doesn't follow links: no click depth, so no box
+            box = _card("Pages by click depth")
             d = depth.clip(upper=6).astype(int).map(lambda v: "6+" if v >= 6 else str(v)).value_counts().rename_axis("Clicks from homepage").reset_index(name="Pages")
             d["deep"] = d["Clicks from homepage"].map(lambda v: "4+ clicks" if v in ("4", "5", "6+") else "Within 3 clicks")
             chart = alt.Chart(d).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4, size=26).encode(
@@ -150,8 +150,6 @@ def overview(df, result, access):
                                 legend=alt.Legend(orient="top", title=None)),
                 tooltip=["Clicks from homepage:N", alt.Tooltip("Pages:Q", format=",")])
             box.altair_chart(chart.properties(height=230), width="stretch")
-        else:
-            box.caption("Click depth is calculated when the crawl finishes.")
         box2 = _card("Status codes")
         sc = df["Final Status"].astype(str).map(lambda v: v[0] + "xx" if v[:1] in "2345" and len(v) == 3 else "Error").value_counts()
         sc = sc.rename_axis("Code").reset_index(name="Pages")

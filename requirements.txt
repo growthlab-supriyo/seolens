@@ -1,2 +1,2 @@
-# Streamlit Community Cloud installs the demo from this file (the package in this repository).
+# Streamlit Community Cloud installs the online version from this file (the package in this repository).
 .

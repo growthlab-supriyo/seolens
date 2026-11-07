@@ -1,6 +1,6 @@
 # Launch checklist: SEO Lens 0.1.0
 
-Three places, in this order: **GitHub** (the code), **PyPI** (`pipx install seolens`), **Hugging Face** (the online demo).
+Three places, in this order: **GitHub** (the code), **PyPI** (`pipx install seolens`), **Streamlit Community Cloud** (the online version).
 Accounts: GitHub `growthlab-supriyo`. Everything below is free.
 
 ## 1. GitHub: publish the code
@@ -37,9 +37,9 @@ Accounts: GitHub `growthlab-supriyo`. Everything below is free.
    seolens
    ```
 
-## 3. Streamlit Community Cloud: the online demo (500 URLs)
+## 3. Streamlit Community Cloud: the online version (500 URLs)
 
-The demo runs straight from the GitHub repository: `streamlit_app.py` switches on demo mode and `requirements.txt` installs the
+The online version runs straight from the GitHub repository: `streamlit_app.py` switches on online mode and `requirements.txt` installs the
 package from the repository. (Hugging Face Docker Spaces now need a paid plan.)
 
 1. Open https://share.streamlit.io and choose **Continue with GitHub**; sign in as `growthlab-supriyo` and allow access.
@@ -48,15 +48,15 @@ package from the repository. (Hugging Face Docker Spaces now need a paid plan.)
    - App URL: `seolens` (gives `https://seolens.streamlit.app`, if that name is free)
    - **Advanced settings → Python version: 3.12**
 3. **Deploy**. The first build takes a few minutes.
-4. Add the demo link to the GitHub README (line under the title) and to the repository's **About → Website**.
+4. Add the online link to the GitHub README (line under the title) and to the repository's **About → Website**.
 
-Free apps go to sleep after some days without visitors and wake on the next visit. Every push to `main` updates the demo.
-Crawl data on the demo is lost when the app restarts or sleeps.
+Free apps go to sleep after some days without visitors and wake on the next visit. Every push to `main` updates the online version.
+Crawl data on the online version is lost when the app restarts or sleeps.
 
 ## 4. After launch
 
 - Share it: a LinkedIn post with a screenshot of the Overview and a sample Excel (from a site you own).
 - Releases: raise `version` in `pyproject.toml` and `seolens/__init__.py`, add a CHANGELOG entry, commit, then publish a new GitHub
-  release `vX.Y.Z`; PyPI updates by itself. The Streamlit demo updates on every push; update the version in
+  release `vX.Y.Z`; PyPI updates by itself. The online version updates on every push; update the version in
   `deploy/docker/Dockerfile` if you use Docker.
 - Optional later: a signed Windows .exe through SignPath Foundation (free for open-source projects).
