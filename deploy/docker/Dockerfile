@@ -11,7 +11,7 @@ ENV HOME=/home/user \
     SEOLENS_HOME=/home/user/data \
     PYTHONUNBUFFERED=1
 
-RUN pip install --no-cache-dir --user "seolens==0.1.0"
+RUN pip install --no-cache-dir --user "seolens==0.2.0"
 
 EXPOSE 7860
 CMD ["seolens", "app", "--host", "0.0.0.0", "--port", "7860", "--no-browser"]

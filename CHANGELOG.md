@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - Optional CrUX API key: real-user Core Web Vitals (LCP, INP, CLS) per page and for the whole site.
 - Reports show only what the audit checked: a URL-list audit has no link-graph columns or Internal Linking sheet; a folder
