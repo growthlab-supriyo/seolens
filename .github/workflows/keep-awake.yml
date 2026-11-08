@@ -1,0 +1,33 @@
+name: Keep Streamlit app awake
+
+# Free Streamlit Community Cloud apps sleep after 12 hours without visitors.
+# This opens the app every 6 hours (and wakes it if needed) so the public link always works.
+on:
+  schedule:
+    - cron: "23 */6 * * *"   # every 6 hours, at :23 to avoid the busy top of the hour
+  workflow_dispatch:          # "Run workflow" button for a manual check
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-awake
+  cancel-in-progress: true
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_URL: https://seolens.streamlit.app/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install headless browser
+        run: |
+          pip install "playwright>=1.45,<2"
+          python -m playwright install --with-deps chromium
+      - name: Visit the app (wake it if asleep)
+        run: python .github/scripts/keep_awake.py
