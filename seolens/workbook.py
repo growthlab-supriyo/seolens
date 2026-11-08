@@ -401,7 +401,7 @@ def _summary(ws, crawler, rows, issues, overall, site, finished, first_url_row, 
         a.hyperlink = "#'%s'!A1" % name
         a.font = Font(color="1A73E8", underline="single")
         ws.cell(row=r1 + k, column=3, value=what).font = Font(color=INK)
-    c = ws.cell(row=r1 + len(guide) + 2, column=2, value="Made by Supriya Mallick")
+    c = ws.cell(row=r1 + len(guide) + 2, column=2, value="Made by Supriyo Mallick")
     c.hyperlink = AUTHOR_URL
     c.font = Font(size=9, color=MUTED, underline="single")
     ws.freeze_panes = "A4"

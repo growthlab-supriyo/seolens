@@ -149,7 +149,7 @@ def _summary(ws, crawler, rows, checks, site, avg, penalty, overall, started, fi
     scope_note = ("These %d URLs (%s)" % (len(rows), host)) if s["mode"] == "list" else (host + crawler.scope + "/ (%d pages)" % len(rows) if crawler.scope else host)
     push(["SEO Audit Summary", scope_note], "title")
     push(["Audit date", finished.strftime("%d %b %Y, %I:%M %p")])
-    push(["Made with ❤️ by", "Supriya Mallick"], "credit")
+    push(["Made with ❤️ by", "Supriyo Mallick"], "credit")
     push([])
     if ai_summary:
         push(["AI SUMMARY", "Written by the AI assistant on this computer from the numbers below; check before sharing"], "section")
