@@ -9,7 +9,7 @@ description = "Free, open-source SEO crawler and audit tool (up to 10,000 URLs) 
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-authors = [{ name = "Supriyo Mallick" }]
+authors = [{ name = "Supriya Mallick" }]
 keywords = ["seo", "crawler", "seo-audit", "technical-seo", "streamlit"]
 classifiers = [
     "Programming Language :: Python :: 3",

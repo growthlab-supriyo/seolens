@@ -2,7 +2,7 @@
 
 **A free, open-source SEO crawler and site audit tool.** It crawls up to 10,000 URLs per run and gives you a health dashboard, an Excel report and a site architecture map. It runs on your own computer, so there's no account, no subscription and no tracking.
 
-Made by [Supriyo Mallick](https://www.linkedin.com/in/s-mallick) for SEOs, freelancers and small teams who can't justify a paid crawler licence.
+Made by [Supriya Mallick](https://www.linkedin.com/in/s-mallick) for SEOs, freelancers and small teams who can't justify a paid crawler licence.
 
 **Try it online:** [seolens.streamlit.app](https://seolens.streamlit.app) (online: up to 500 URLs per crawl) · **Install it:** `pipx install seolens` (up to 10,000 URLs) · [PyPI](https://pypi.org/project/seolens/)
 
