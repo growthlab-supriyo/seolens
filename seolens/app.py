@@ -259,7 +259,8 @@ if df.empty:
 
 # ---------------------------------------------------------------- results
 
-status = pd.to_numeric(df.get("Final Status"), errors="coerce")
+from seolens.overview import column_of
+status = pd.to_numeric(column_of(df, "Final Status"), errors="coerce")
 access = df.get("Crawl Access", pd.Series(["OK"] * len(df))).fillna("OK")
 c = st.columns(6)
 c[0].metric("Health score", "%s / 100" % res["overall"] if res.get("overall") is not None else "–")
@@ -293,7 +294,7 @@ with tabs[0]:
         idf = idf.sort_values(["_r", "Pages"], ascending=[True, False]).drop(columns="_r")
         pick = st.selectbox("Show the pages with this issue", ["–"] + list(idf["Issue"]))
         if pick != "–":
-            hit = df[df["Issues"].fillna("").str.contains(pick, regex=False)]
+            hit = df[column_of(df, "Issues").fillna("").astype(str).str.contains(pick, regex=False)]
             st.dataframe(hit[[c for c in KEY_COLUMNS if c in hit]], width="stretch", hide_index=True)
         st.dataframe(idf, width="stretch", hide_index=True)
     else:
@@ -316,7 +317,7 @@ with tabs[1]:
     st.download_button("⬇ CSV (this view)", view[cols or ["URL"]].to_csv(index=False).encode("utf-8-sig"), "pages.csv", "text/csv")
 
 with tabs[2]:
-    codes = df["Final Status"].astype(str).value_counts().rename_axis("Status").reset_index(name="Pages")
+    codes = column_of(df, "Final Status").astype(str).value_counts().rename_axis("Status").reset_index(name="Pages")
     st.dataframe(codes, hide_index=True)
     redir = df[pd.to_numeric(df.get("Redirect Hops"), errors="coerce").fillna(0) > 0] if "Redirect Hops" in df else df.iloc[0:0]
     if len(redir):

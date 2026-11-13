@@ -14,6 +14,11 @@ GOOD, WARNING, SERIOUS, CRITICAL, NEUTRAL, BLUE = "#0ca30c", "#fab219", "#ec835a
 LEVEL = {"Critical": "Errors", "High": "Errors", "Medium": "Warnings", "Low": "Notices"}
 LEVEL_ICON = {"Errors": "⛔", "Warnings": "⚠️", "Notices": "ℹ️"}
 
+def column_of(df, name, default=""):
+    """A column, or a column of `default` when this audit has none (e.g. no Click Depth in a URL-list audit)."""
+    return df[name] if name in df else pd.Series([default] * len(df), index=df.index, dtype=object)
+
+
 def _issues(df):
     return df.get("Issues", pd.Series([""] * len(df))).fillna("").map(lambda v: [i.strip() for i in str(v).split(";") if i.strip()])
 
@@ -26,7 +31,7 @@ def _card(title):
 
 def overview(df, result, access):
     issues = _issues(df)
-    status = pd.to_numeric(df.get("Final Status"), errors="coerce")
+    status = pd.to_numeric(column_of(df, "Final Status"), errors="coerce")
     hops = pd.to_numeric(df.get("Redirect Hops"), errors="coerce").fillna(0) if "Redirect Hops" in df else pd.Series(0, index=df.index)
     html = (status == 200) & (access == "OK") & ~df.get("Meta Title", pd.Series("", index=df.index)).astype(str).str.startswith("N/A")
     has_error = issues.map(lambda lst: any(LEVEL[priority(i)] == "Errors" for i in lst))
@@ -117,7 +122,7 @@ def overview(df, result, access):
         else:
             box.success("No page-level issues found.")
     with right:
-        depth = pd.to_numeric(df.get("Click Depth"), errors="coerce").dropna()
+        depth = pd.to_numeric(column_of(df, "Click Depth"), errors="coerce").dropna()
         if len(depth):  # a URL-list audit doesn't follow links: no click depth, so no box
             box = _card("Pages by click depth")
             d = depth.clip(upper=6).astype(int).map(lambda v: "6+" if v >= 6 else str(v)).value_counts().rename_axis("Clicks from homepage").reset_index(name="Pages")
@@ -130,7 +135,7 @@ def overview(df, result, access):
                 tooltip=["Clicks from homepage:N", alt.Tooltip("Pages:Q", format=",")])
             box.altair_chart(chart.properties(height=230), width="stretch")
         box2 = _card("Status codes")
-        sc = df["Final Status"].astype(str).map(lambda v: v[0] + "xx" if v[:1] in "2345" and len(v) == 3 else "Error").value_counts()
+        sc = column_of(df, "Final Status").astype(str).map(lambda v: v[0] + "xx" if v[:1] in "2345" and len(v) == 3 else "Error").value_counts()
         sc = sc.rename_axis("Code").reset_index(name="Pages")
         colours = {"2xx": GOOD, "3xx": BLUE, "4xx": CRITICAL, "5xx": SERIOUS, "Error": NEUTRAL}
         chart = alt.Chart(sc).mark_bar(cornerRadiusTopRight=4, cornerRadiusBottomRight=4, size=18).encode(
