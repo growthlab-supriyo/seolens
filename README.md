@@ -46,7 +46,7 @@ seolens
 | International | hreflang (return links, codes, targets), `html lang`, og:locale |
 | Performance signals | Heavy images, render-blocking scripts, third-party scripts, page weight |
 
-**Dashboard tabs:** Overview (health score, crawled-pages breakdown, errors, warnings and notices, thematic scores, top issues, click depth), Issues, All pages (filter and export CSV), Response codes, Blocked & failed, Broken links and Site health. The **Excel report** has the same data plus a Summary sheet with quick wins.
+**Dashboard tabs:** Overview (health score, crawled-pages breakdown, errors, warnings and notices, thematic scores, top issues, click depth), Issues, All pages (filter and export CSV), Response codes, Blocked & failed, Broken links and Site health. The **Excel report** has 11 sheets: a Dashboard (KPI cards, issue-distribution and severity charts, top priorities, audit completeness), an Action Plan to assign and track fixes, Issue Details (one row per URL per rule), Page Audit, On-Page SEO, Technical SEO, Internal Links, Images & Speed, Schema & Social, Crawl Coverage and Raw & Audit Info, plus hidden raw-data sheets.
 
 ## Fast, and polite
 
@@ -59,7 +59,7 @@ seolens
 
 SEO Lens **does not bypass** Cloudflare, CAPTCHAs or other bot protection, and it never disguises itself as a person's browser. It sends `SEOLens/<version>` in its User-Agent so site owners can see who is crawling them. What it does instead:
 
-- **Detects and labels** each blocked page: Cloudflare challenge, bot check or CAPTCHA, 403, rate limiting (429), server busy (503), timeouts and connection errors. Blocked pages appear in the **Blocked & failed** tab and the Excel summary, never silently missing, so an incomplete crawl can't pass for a complete audit.
+- **Detects and labels** each blocked page: Cloudflare challenge, bot check or CAPTCHA, 403, rate limiting (429), server busy (503), timeouts and connection errors. Blocked pages appear in the **Blocked & failed** tab and the Excel report's Crawl Coverage, never silently missing, so an incomplete crawl can't pass for a complete audit.
 - **Doesn't hammer a blocked page.** A challenge page is not retried. A 403 is retried once, and only if the site was serving pages normally until then.
 - **Authorized access for sites you own.** In Cloudflare, add a WAF custom rule that skips security checks for a secret request header (or for the `SEOLens` User-Agent). Then add that header under *Authorized access* in the app. HTTP Basic login is supported too. Credentials are sent **only** to the site being audited, never to external links, images or redirects to other hosts. They are stored in the local database on your computer.
 
@@ -94,7 +94,8 @@ The tests run a small local website with redirects, a 404, a slow page, a rate-l
 | `seolens/crawler.py` | Discovery, fetch loop, blocked-page classification, saving and resuming |
 | `seolens/throttle.py` | The adaptive concurrency controller |
 | `seolens/analyze.py`, `checks.py`, `sitehealth.py` | Per-page analysis, cross-page checks, site-wide checks |
-| `seolens/report.py` | Excel report and site architecture map |
+| `seolens/report_sheets.py`, `report_dashboard.py`, `report_data.py`, `report_style.py` | The 11-sheet Excel report |
+| `seolens/report.py` | Page columns, health score and the site architecture map |
 | `seolens/store.py` | SQLite (WAL) |
 | `seolens/worker.py` | Runs the crawl in its own process |
 | `seolens/app.py`, `overview.py` | Streamlit dashboard |

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- New Excel report with 11 sheets: Dashboard (KPI cards, native issue-distribution and severity charts, top priorities, audit
+  completeness), Action Plan (one task per fix, with Owner, Status drop-down, Target Date and Notes for you to fill in), Issue
+  Details (one row per URL per rule, linked to its task), Page Audit, On-Page SEO, Technical SEO, Internal Links, Images & Speed,
+  Schema & Social, Crawl Coverage and Raw & Audit Info, plus hidden raw-data sheets.
+- Task priority (P0–P3) is separate from issue severity; IDs stay the same from run to run.
+- 404/410 pages are reported as "Page not found", other 4xx as "Client error", each with how many pages link to it.
+- Sites that don't send their intermediate SSL certificate are now audited (verified the way browsers do), and Site Health
+  reports the incomplete chain. Invalid certificates are refused with a plain-language reason.
+- Removed the Google Sheets help.
+
 ## 0.2.0
 
 - Optional CrUX API key: real-user Core Web Vitals (LCP, INP, CLS) per page and for the whole site.
