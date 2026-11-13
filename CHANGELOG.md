@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - Nine advanced checks, inside the existing 11 sheets (no new tabs):
   - URL parameters: tracking parameters in internal links, duplicate parameter variants, parameter URLs in the sitemap, many
