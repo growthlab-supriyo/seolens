@@ -76,7 +76,15 @@ def _run_site_health(crawler, report):
                 home_html = re.sub(r"<!--[\s\S]*?-->", "", home_res.text)
             add("Availability", "Homepage", "Pass" if code == 200 else "Fail",
                 "%d %s%s" % (code, home_final, " (after %d redirect/s)" % (len(home["chain"]) - 1) if len(home["chain"]) > 1 else ""), "Critical", "The homepage must return 200.")
-            add("Security", "SSL certificate", "Pass", "HTTPS loads with a valid certificate")
+            fixed = [h for h, p in f.chain_fixed.items() if p]
+            if fixed:
+                add("Security", "SSL certificate chain", "Warn",
+                    "Valid certificate, but the server doesn't send its intermediate certificate (%s). Browsers usually download it "
+                    "themselves; crawlers, apps and some phones can't, and fail with a certificate error." % ", ".join(fixed),
+                    "High", "Install the full certificate chain on the server (for Let's Encrypt: fullchain.pem, not cert.pem), "
+                            "then check it at ssllabs.com/ssltest.")
+            else:
+                add("Security", "SSL certificate", "Pass", "HTTPS loads with a valid certificate")
         home_host = (parse_url(home_final) or {}).get("host", host)
         http = f.chain("http://" + host + "/")
         if http["error"]:

@@ -1,4 +1,4 @@
-"""Writes the audit to an Excel workbook (same tabs as the Google Sheets version) plus the Site Architecture Map (HTML)."""
+"""Writes the audit to an Excel workbook plus the Site Architecture Map (HTML)."""
 import json
 import os
 import re

@@ -7,33 +7,12 @@ import pandas as pd
 import streamlit as st
 
 from .checks import fix_text, priority
+from .themes import THEMES, theme_of  # noqa: F401 - re-exported
 
 # Status colours (fixed, never reused for a data series) + a neutral for "not readable".
 GOOD, WARNING, SERIOUS, CRITICAL, NEUTRAL, BLUE = "#0ca30c", "#fab219", "#ec835a", "#d03b3b", "#8a8984", "#2a78d6"
 LEVEL = {"Critical": "Errors", "High": "Errors", "Medium": "Warnings", "Low": "Notices"}
 LEVEL_ICON = {"Errors": "⛔", "Warnings": "⚠️", "Notices": "ℹ️"}
-
-THEMES = {
-    "Crawlability & indexing": ["Page fetch failed", "Page not returning 200", "Page is noindex", "Redirect chain", "URL redirects",
-                                "Bot-check page", "Search results page is indexable", "isn't indexable", "canonical", "Canonical"],
-    "On-page SEO": ["meta title", "Title length", "meta description", "Description length", "H1", "title tags",
-                    "Title and H1", "Title year", "viewport"],
-    "Content": ["Thin content", "Duplicate content", "Near-duplicate", "Placeholder", "Thin archive", "date", "Date",
-                "JavaScript", "published"],
-    "Internal linking": ["Broken links", "Orphan page", "Deep page", "anchor", "Document-relative", "Internal links using http",
-                         "target=_blank"],
-    "Markup & social": ["structured data", "Structured data", "Open Graph", "og:", "Relative URL in hreflang or Open Graph"],
-    "Performance": ["images", "Images", "Render-blocking", "performance", "WebP", "Core Web Vitals", "analytics", "Universal Analytics"],
-    "International": ["hreflang", "html lang", "og:locale"],
-}
-
-
-def theme_of(issue):
-    for theme, keys in THEMES.items():
-        if any(k in issue for k in keys):
-            return theme
-    return "Other"
-
 
 def _issues(df):
     return df.get("Issues", pd.Series([""] * len(df))).fillna("").map(lambda v: [i.strip() for i in str(v).split(";") if i.strip()])

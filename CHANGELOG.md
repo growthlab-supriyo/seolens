@@ -12,7 +12,6 @@
 - Removed: author, published/modified dates and date checks, JavaScript-rendering risk, script count, performance risk
   and image width/height.
 - The URL box appears only for "List of URLs". JavaScript rendering stays off unless turned on, installed version only.
-- "Open in Google Sheets" help next to the Excel download.
 
 ## 0.1.0 (first public release)
 

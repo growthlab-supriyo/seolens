@@ -248,8 +248,9 @@ if run["status"] in ("paused", "interrupted", "stopped"):
         st.caption("Core Web Vitals need the CrUX key again after a resume: it is never saved on the online version.")
 if run["status"] == "failed":
     st.error(run["error"].split("\n")[0])
-    with st.expander("Details"):
-        st.code(run["error"])
+    if "\n" in run["error"]:  # only an unexpected error has technical details worth showing
+        with st.expander("Technical details"):
+            st.code(run["error"])
 
 df = pages_frame(rid, run["updated"])
 res = run["result"]
@@ -269,15 +270,10 @@ c[4].metric("5xx", int((status >= 500).sum()))
 c[5].metric("Blocked / not readable", int((access != "OK").sum()))
 
 if res.get("xlsx") and Path(res["xlsx"]).exists():
-    d = st.columns([1, 1, 1, 3])
+    d = st.columns([1, 1, 4])
     d[0].download_button("⬇ Excel report", Path(res["xlsx"]).read_bytes(), Path(res["xlsx"]).name, type="primary")
     if res.get("map") and Path(res["map"]).exists():
         d[1].download_button("⬇ Site architecture map", Path(res["map"]).read_bytes(), Path(res["map"]).name, mime="text/html")
-    with d[2].popover("Open in Google Sheets"):
-        st.markdown("1. Download the **Excel report**.\n"
-                    "2. Open [drive.google.com](https://drive.google.com) → **New** → **File upload** → choose the report.\n"
-                    "3. Right-click the uploaded file → **Open with** → **Google Sheets**.\n\n"
-                    "Every tab, colour and filter is kept. To keep it as a Google Sheet, use **File** → **Save as Google Sheets**.")
 elif run["status"] != "done":
     st.caption("The Excel report is written when the crawl finishes.")
 

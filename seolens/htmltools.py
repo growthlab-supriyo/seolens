@@ -1,4 +1,4 @@
-"""HTML and URL helpers (a port of the Google Sheets version, so both tools read pages the same way).
+"""HTML and URL helpers (shared by every check, so pages are read the same way everywhere).
 
 The HTML is read as text with nesting-aware tag scanning instead of a strict parser: broken real-world HTML
 (unclosed tags, stray closing tags) is handled the same way as in the Sheets tool.

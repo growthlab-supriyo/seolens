@@ -205,7 +205,12 @@ class Crawler:
         # The real homepage address (http/https, www or not) after redirects.
         home = self.fetcher.chain(p["protocol"] + "://" + p["host"] + "/")
         if home["error"]:
-            raise ValueError("The site doesn't load: " + home["error"])
+            err = home["error"]
+            if err.startswith("SSL error"):
+                raise ValueError("The site couldn't be audited because %s. Browsers may still open it, but crawlers like SEO Lens and "
+                                 "Googlebot need a valid certificate. Fix the certificate (check it at ssllabs.com/ssltest), then "
+                                 "audit again." % err.split(": ", 1)[-1])
+            raise ValueError("The site doesn't load: " + err)
         hp = parse_url(home["final"]) or p
         self.host, self.protocol = hp["host"], hp["protocol"]
         path = p["path"].rstrip("/")

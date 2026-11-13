@@ -19,6 +19,78 @@ MAX_REDIRECTS = 5
 MAX_BODY = 15 * 1024 * 1024  # Google stops reading HTML after 15 MB
 
 
+_CA_ISSUERS_OID = b"\x06\x08\x2b\x06\x01\x05\x05\x07\x30\x02"  # id-ad-caIssuers: where the issuing certificate can be downloaded
+
+
+def _ca_issuer_urls(der):
+    """The 'CA Issuers' download addresses written inside a DER certificate (its AIA extension)."""
+    urls, i = [], 0
+    while True:
+        i = der.find(_CA_ISSUERS_OID, i)
+        if i < 0:
+            return urls
+        j = i + len(_CA_ISSUERS_OID)
+        if der[j:j + 1] == b"\x86" and j + 2 <= len(der) and der[j + 1] < 0x80:  # [6] IA5String, short length
+            urls.append(der[j + 2:j + 2 + der[j + 1]].decode("ascii", "ignore"))
+        i = j
+
+
+def complete_chain_bundle(hostport):
+    """For a site that doesn't send its intermediate certificate(s): download them from the address in its certificate,
+    like browsers do, and return a CA bundle file (the usual trusted roots + those intermediates). The site is then
+    verified normally against the trusted roots; nothing is trusted that a trusted root didn't sign. None if not possible."""
+    import os
+    import ssl
+    import tempfile
+
+    import certifi
+    host, _, port = hostport.partition(":")
+    try:
+        der = ssl.PEM_cert_to_DER_cert(ssl.get_server_certificate((host, int(port or 443)), timeout=TIMEOUT))
+    except (OSError, ValueError):
+        return None
+    extra = []
+    for _ in range(3):  # leaf -> intermediate -> (cross-signed) intermediate
+        urls = [u for u in _ca_issuer_urls(der) if u.startswith("http")]
+        if not urls:
+            break
+        try:
+            r = requests.get(urls[0], timeout=TIMEOUT)
+            r.raise_for_status()
+        except requests.RequestException:
+            break
+        body = r.content
+        try:
+            if body.lstrip().startswith(b"-----BEGIN CERTIFICATE"):
+                pem = body.decode("ascii", "ignore")
+                der = ssl.PEM_cert_to_DER_cert(pem)
+            else:
+                der, pem = body, ssl.DER_cert_to_PEM_cert(body)
+        except ValueError:
+            break
+        extra.append(pem)
+    if not extra:
+        return None
+    fd, path = tempfile.mkstemp(prefix="seolens-ca-", suffix=".pem")
+    with os.fdopen(fd, "w", encoding="ascii", errors="ignore") as fh:
+        fh.write(open(certifi.where(), encoding="ascii", errors="ignore").read() + "\n" + "\n".join(extra))
+    return path
+
+
+def ssl_reason(e):
+    """A certificate error in plain words."""
+    s = str(e)
+    for rx, words in ((r"certificate has expired", "the SSL certificate has expired"),
+                      (r"[Hh]ostname mismatch|doesn't match|not valid for", "the SSL certificate doesn't cover this domain name"),
+                      (r"self.signed", "the SSL certificate is self-signed (not issued by a trusted authority)"),
+                      (r"unable to get local issuer", "the SSL certificate chain is incomplete: the server doesn't send its intermediate certificate"),
+                      (r"WRONG_VERSION_NUMBER|wrong version number", "the server doesn't speak HTTPS on port 443"),
+                      (r"handshake failure|HANDSHAKE_FAILURE|UNSUPPORTED_PROTOCOL", "the server's SSL/TLS setup is outdated or broken")):
+        if re.search(rx, s):
+            return words
+    return _short(e)
+
+
 class Response:
     """What the audit needs from one HTTP answer."""
 
@@ -42,6 +114,11 @@ class Fetcher:
         self.auth_host = ""
         self.auth_headers = {}
         self.basic_auth = None
+        # Sites that send an incomplete certificate chain: host -> CA bundle (the usual roots + the missing intermediate
+        # certificates, downloaded from the address in the site's certificate, as browsers do). Certificates are still
+        # fully verified; Site Health reports the incomplete chain.
+        self.chain_fixed = {}
+        self._chain_lock = threading.Lock()
 
     def set_access(self, host, headers=None, basic_auth=None):
         from .htmltools import bare_host
@@ -88,14 +165,22 @@ class Fetcher:
                 return None, "Too many redirects (%d+)" % MAX_REDIRECTS
             h.update(self.auth_headers)
             auth = self.basic_auth
+        hostport = (re.match(r"^https://([^/?#]+)", url, re.I) or [None, ""])[1].split("@")[-1].lower()
         try:
-            r = self._session().get(url, headers=h, auth=auth, allow_redirects=follow, timeout=TIMEOUT, stream=True, verify=True)
+            r = self._session().get(url, headers=h, auth=auth, allow_redirects=follow, timeout=TIMEOUT, stream=True,
+                                    verify=self.chain_fixed.get(hostport) or True)
             content = r.raw.read(MAX_BODY, decode_content=True) if r.raw else b""
             r.close()
             hdrs = {k.lower(): v for k, v in r.headers.items()}
             return Response(r.url, r.status_code, hdrs, content, _decode(content, hdrs.get("content-type", ""))), None
         except requests.exceptions.SSLError as e:
-            return None, "SSL error: " + _short(e)
+            if hostport and hostport not in self.chain_fixed and "unable to get local issuer certificate" in str(e):
+                with self._chain_lock:
+                    if hostport not in self.chain_fixed:
+                        self.chain_fixed[hostport] = complete_chain_bundle(hostport)
+                if self.chain_fixed[hostport]:
+                    return self.get(url, follow, headers, user_agent)  # verified again, now with the missing intermediates
+            return None, "SSL error: " + ssl_reason(e)
         except requests.exceptions.ConnectionError as e:
             msg = _short(e)
             return None, ("DNS: domain not found" if re.search(r"getaddrinfo|Name or service|nodename|resolve", msg, re.I) else "Connection error: " + msg)

@@ -189,7 +189,7 @@ def _detail(name, row, groups=None):
 
 def build_issues(rows, checks, site_wide=True):
     """[{name, priority, category, owner, effort, pages, share, scope, fix, detail, rows}] sorted for action."""
-    from .overview import theme_of
+    from .themes import theme_of
     n = max(1, len(rows))
     html = sum(1 for r in rows if r.get("Final Status") == 200 and not str(r.get("Meta Title", "")).startswith("N/A"))
     per = defaultdict(list)

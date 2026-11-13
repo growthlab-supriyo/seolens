@@ -96,6 +96,9 @@ def main(argv=None):
         store.update_run(a.run, status="paused", control="")
     except Stopped:
         store.update_run(a.run, status="stopped", control="")
+    except ValueError as e:  # an expected problem with the site (doesn't load, nothing to audit): the message says it all
+        store.log(a.run, "❌ " + str(e))
+        store.update_run(a.run, status="failed", control="", error=str(e))
     except Exception as e:  # noqa: BLE001 - the error is shown in the app
         store.log(a.run, "❌ " + str(e))
         store.update_run(a.run, status="failed", control="", error="%s\n\n%s" % (e, traceback.format_exc()[-3000:]))
