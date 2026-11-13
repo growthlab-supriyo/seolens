@@ -38,7 +38,7 @@
   ],
   "Thin content": [
    "High",
-   "Expand pages under 300 words with useful, unique content that matches search intent."
+   "The main content (menus, header and footer not counted) is below the review threshold for this type of page. Expand it with useful, unique content that matches search intent, if the page is meant to rank."
   ],
   "Duplicate meta title": [
    "High",
@@ -218,7 +218,7 @@
   ],
   "URL format issues": [
    "Low",
-   "Use short, lowercase URLs with hyphens: no underscores, spaces, double slashes, session IDs or long parameter strings. If you change a URL, 301-redirect the old one."
+   "Use short, lowercase URLs with hyphens: no underscores, spaces, double slashes, session IDs or long parameter strings. For new pages only: changing an established URL just for looks rarely pays off. If you do change one, 301-redirect the old URL and update internal links."
   ],
   "Title and H1 don't match": [
    "Low",

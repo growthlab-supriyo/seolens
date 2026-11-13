@@ -82,13 +82,24 @@ with st.sidebar:
         speed = st.select_slider("Speed", ["Polite", "Medium", "Fast"], "Medium",
                                  help="Starting pages at a time: Polite 4, Medium 10, Fast 20. It adjusts by itself: "
                                       "slower when the server gets slow or asks to slow down, faster when it answers quickly.")
-        render, crux_key = "off", ""
+        render, render_max, crux_key = "off", 100, ""
         with st.expander("More settings"):
             if not ONLINE:  # JavaScript rendering needs a browser on the computer: installed version only
-                render = st.selectbox("JavaScript rendering (optional)", ["off", "auto", "all"],
-                                      format_func={"off": "Off (default): raw HTML only, fastest", "auto": "Auto: start page + pages that look empty",
-                                                   "all": "Every page: compare raw vs rendered"}.get,
-                                      help="Needs Playwright: pip install \"seolens[js]\" then playwright install chromium.")
+                render = st.selectbox("JavaScript comparison (optional)", ["off", "auto", "all"],
+                                      format_func={"off": "Off (default): HTML only, fastest",
+                                                   "auto": "Selective: start page + pages that look incomplete without JavaScript",
+                                                   "all": "All: every page"}.get,
+                                      help="Compares the raw HTML with the page after JavaScript runs (title, description, H1, canonical, "
+                                           "robots, words, schema, internal links). Needs Playwright: pip install \"seolens[js]\" then "
+                                           "playwright install chromium.")
+                render_max = st.slider("Maximum pages to render", 25, 500, 100, step=25,
+                                       help="Rendering is slow: pages over this limit are listed as 'Not measured'.")
+            content_min = st.number_input("Main-content review threshold (words)", 100, 1000, 300, step=50,
+                                          help="Pages whose main content (menus, header and footer not counted) is shorter are flagged "
+                                               "for review. Half for the homepage, product and about pages; contact, gallery, legal "
+                                               "pages and archives are not judged.")
+            url_max = st.number_input("URL length review threshold (characters)", 75, 250, 115, step=5,
+                                      help="Longer URLs are listed for review. Not an error: established URLs rarely need changing.")
             follow = st.checkbox("Follow links", True)
             robots = st.checkbox("Respect robots.txt", True, help="Turn off only for a site you own.", disabled=ONLINE)
             external = st.checkbox("Check external links", True)
@@ -113,6 +124,7 @@ with st.sidebar:
                     "urls": [u.strip() for u in urls.splitlines() if u.strip()][:cap], "max_pages": int(max_pages),
                     "speed": speed, "render_js": "off" if ONLINE else render, "follow_links": follow, "respect_robots": robots,
                     "check_external": external, "include_query": query, "site_wide_health": sitewide,
+                    "render_max": int(render_max), "content_min": int(content_min), "url_max": int(url_max),
                     "auth_headers": auth_headers, "auth_user": auth_user.strip(), "auth_pass": auth_pass,
                     "tz": str(getattr(viewer_tz(), "key", "") or "")}
         settings["tz_offset"] = getattr(st.context, "timezone_offset", None)

@@ -9,7 +9,7 @@ from email.utils import parsedate_to_datetime
 import regex
 
 from .htmltools import (ASSET_RE, bare_host, class_tokens, clean_spaces, clean_text, count_words, decode_entities, get_elements,
-                        get_tags, hash_text, is_bot_check_page, is_internal, is_product_grid, is_utility_link, main_content_html, norm,
+                        get_tags, hash_text, is_bot_check_page, is_internal, is_product_grid, is_utility_link, main_content_pick, norm,
                         parse_attributes, parse_url, rel_has, remove_blocks, remove_elements_where, resolve_url, same_url, section_of,
                         strip_non_content, unique)
 
@@ -22,6 +22,11 @@ TECH_RULES = [(g, n, re.compile(t["source"], re.I), re.compile(h["source"], re.I
 TITLE_MIN, TITLE_MAX, DESC_MIN, DESC_MAX = 30, 60, 70, 160
 THIN_CONTENT_WORDS = 300
 THIN_ARCHIVE_POSTS = 2
+# How the main content was found → (label, confidence)
+MAIN_METHODS = {"articleBody": ("Article body (itemprop=articleBody)", "High"), "content class": ("Content area (e.g. entry-content)", "High"),
+                "main": ("<main> element", "High"), "article": ("<article> element", "Medium")}
+NEXT_TEXT = {"next", "next page", "older posts", "older", "›", "»", ">", "→", "next »", "next ›", "next →"}
+PAGE_NUM_RE = re.compile(r"(?:[?&](?:page|paged|pg|p)=(\d+)|/page/(\d+)/?(?:$|[?#]))", re.I)
 
 GENERIC_ANCHORS = {"click here", "here", "read more", "learn more", "more", "this", "link", "this link", "click", "go", "details",
                    "more info", "continue", "continue reading", "see more", "view more", "find out more"}
@@ -42,7 +47,7 @@ ARCHIVE_TYPES = [
 
 # ---------------------------------------------------------------- small checks
 
-def url_hygiene(url):
+def url_hygiene(url, max_len=115):
     p = parse_url(url)
     if not p:
         return []
@@ -62,7 +67,7 @@ def url_hygiene(url):
     params = len([x for x in p["query"][1:].split("&") if x]) if p["query"] else 0
     if params > 3:
         out.append("%d parameters" % params)
-    if len(url) > 115:
+    if len(url) > max_len:
         out.append("long URL (%d characters)" % len(url))
     return out
 
@@ -539,7 +544,8 @@ def analyze_page(url, ch):
     d = {"URL": url}
     issues = []
     ex = {"links": [], "discovered": [], "images": [], "hreflang": [], "minhash": None, "source": ch["final"]}
-    probs = url_hygiene(url)
+    opts = ch.get("opts") or {}
+    probs = url_hygiene(url, opts.get("url_max", 115))
     d["URL Issues"] = ", ".join(probs) if probs else "None"
     if probs:
         issues.append("URL format issues")
@@ -609,7 +615,8 @@ def analyze_page(url, ch):
     own = strip_non_content(content)
     own_text = clean_text(own)
     lost = (not re.search(r"<h1\b", own, re.I)) if re.search(r"<h1\b", content, re.I) else True
-    if count_words(own_text) < 50 and word_count >= 150 and lost:
+    whole_page = count_words(own_text) < 50 and word_count >= 150 and lost
+    if whole_page:
         own, own_text = content, visible
     content_words = count_words(own_text)
 
@@ -716,7 +723,14 @@ def analyze_page(url, ch):
     d["Title vs H1"] = title_vs_h1(title, h1s[0] if h1s else "")
     if d["Title vs H1"].startswith("Different"):
         issues.append("Title and H1 don't match")
-    main_html = main_content_html(content)
+    main_html, method = main_content_pick(content)
+    main_words = count_words(clean_text(main_html)) if method else 0
+    if method and main_words >= 50 and main_words >= content_words * 0.3:
+        words, how, conf = main_words, MAIN_METHODS[method][0], MAIN_METHODS[method][1]
+    elif whole_page:
+        words, how, conf = content_words, "Whole page (menus and footer couldn't be told apart)", "Low"
+    else:
+        words, how, conf = content_words, "Page minus menus, header, footer and sidebars", "Medium"
     main_no_grid = remove_elements_where(main_html, is_product_grid)
     ex["blocks"] = content_blocks(main_no_grid)
 
@@ -736,8 +750,11 @@ def analyze_page(url, ch):
         if prev and lv > prev + 1:
             skips.append("H%d→H%d" % (prev, lv))
         prev = lv
-    d["Word Count"] = content_words
-    if content_words < THIN_CONTENT_WORDS:
+    d["Word Count"] = words
+    d["Total Words"] = word_count
+    d["Boilerplate Words"] = max(0, word_count - words)
+    d["Content Extraction"] = "%s · %s confidence" % (how, conf)
+    if words < opts.get("content_min", THIN_CONTENT_WORDS):
         issues.append("Thin content")
 
     # Images
@@ -794,8 +811,8 @@ def analyze_page(url, ch):
     forms = {"absolute": 0, "root": 0, "relative": 0, "protocol": 0}
     root_list, rel_list = [], []
     page_nofollow = any(re.search(r"\b(nofollow|none)\b", a["content"], re.I) for a in robots)
-    total = generic = blank = insecure = tel = mail = 0
-    page_links = []
+    total = generic = blank = insecure = tel = mail = empty = js_nav = 0
+    page_links, next_links = [], []
     for a in get_elements(content, "a"):
         href = (a["attrs"].get("href") or "").strip()
         if href.lower().startswith("tel:"):
@@ -805,7 +822,13 @@ def analyze_page(url, ch):
             mail += 1
             continue
         if not href or href.startswith("#") or href.lower().startswith("javascript:"):
+            if a["attrs"].get("onclick") or href.lower().startswith("javascript:"):
+                js_nav += 1  # navigation by script, without a crawlable href
             continue
+        label = clean_spaces(a["attrs"].get("aria-label") or a["attrs"].get("title") or "")
+        if rel_has(a["attrs"], "next") or clean_text(a["inner"]).lower() in NEXT_TEXT or "next" in label.lower() or \
+                "next" in (a["attrs"].get("class") or "").lower().split():
+            next_links.append(href)
         if re.match(r"^https?://", href, re.I):
             forms["absolute"] += 1
         elif href.startswith("//"):
@@ -827,6 +850,11 @@ def analyze_page(url, ch):
             if not anchor:
                 im = [parse_attributes(t) for t in get_tags(a["inner"], "img")]
                 anchor = "[image: %s]" % (clean_spaces(im[0]["alt"]) if im and (im[0].get("alt") or "").strip() else "no alt") if im else ""
+                if anchor in ("", "[image: no alt]"):
+                    if label:
+                        anchor = "[label: %s]" % label
+                    else:
+                        empty += 1  # no text, no alt, no aria-label: the link has no accessible name
             page_links.append((re.sub(r"#.*$", "", full), anchor))
         if internal and page["protocol"] == "https" and p["protocol"] == "http":
             insecure += 1
@@ -849,6 +877,8 @@ def analyze_page(url, ch):
         issues.append("Document-relative links")
     if generic:
         issues.append("Generic anchor text")
+    if empty:
+        issues.append("Links without anchor text")
     if insecure:
         issues.append("Internal links using http://")
 
@@ -871,6 +901,32 @@ def analyze_page(url, ch):
             continue
         seen[k] = [u, anchor[:60], where]
     ex["links"] = list(seen.values())
+    # Every internal anchor (not only the first per target) for the anchor-distribution analysis: [url, anchor, where, times]
+    occ = {}
+    for u, anchor in page_links:
+        k = norm(u)
+        pu = parse_url(u)
+        if k == me or not pu or not is_internal(bare_host(pu["host"]), page_root):
+            continue
+        key = (k, anchor[:60].lower())
+        if key in occ:
+            occ[key][3] += 1
+        elif len(occ) < 400:
+            occ[key] = [u, anchor[:60], "c" if k in in_content else "m", 1]
+    ex["anchors"] = list(occ.values())
+    ex["js_nav"] = js_nav
+
+    # Pagination: crawlable next links and page numbers; rel=next/prev is recorded as markup only
+    num = PAGE_NUM_RE.search(page_url)
+    rel_next = next((resolve_url(a["href"], base_url) for a in links if rel_has(a, "next") and a.get("href")), "")
+    rel_prev = next((resolve_url(a["href"], base_url) for a in links if rel_has(a, "prev") and a.get("href")), "")
+    nxt = next((u for u in (resolve_url(h, base_url) for h in next_links) if u and not same_url(u, page_url)), "")
+    # The first page of a series has no page number: it counts when its next link goes to a numbered page.
+    pg = int(num.group(1) or num.group(2)) if num else (1 if PAGE_NUM_RE.search(nxt or rel_next or "") else 0)
+    ex["pagination"] = {"page": pg, "next": nxt or "", "rel_next": rel_next or "", "rel_prev": rel_prev or ""} if pg else {}
+    if pg:
+        d["Pagination"] = "Page %d%s%s" % (pg, " · next page link: " + nxt if nxt else " · no crawlable next-page link",
+                                           " · rel=next/prev in the head (markup only, not used by Google)" if rel_next or rel_prev else "")
 
     # Speed signals
     def is_exec(a):
@@ -999,6 +1055,7 @@ def analyze_page(url, ch):
     body_tag = re.search(r"<body\b[^>]*>", html, re.I)
     body_class = parse_attributes(body_tag.group(0)).get("class", "") if body_tag else ""
     shop = is_shop_page(meta("og:type"), nodes, body_class, page["path"])
+    ex["shop"] = bool(shop)
     archive = None if shop else detect_archive(body_class, page)
     if archive:
         articles = len(re.findall(r"<article\b", main_html, re.I))

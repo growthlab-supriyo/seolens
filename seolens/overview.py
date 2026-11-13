@@ -104,6 +104,24 @@ def overview(df, result, access):
             st.progress(pct / 100)
             st.caption("%s page%s with issues" % (f"{bad:,}", "" if bad == 1 else "s"))
 
+    # ---------------------------------------------------------------- row 2b: advanced technical checks
+    adv = result.get("advanced") or {}
+    if adv:
+        st.markdown("##### Advanced technical checks")
+        diff = adv.get("render_diff")
+        items = [("Parameter URLs", adv.get("param_urls", 0), "in links, sitemap or crawl"),
+                 ("Canonical conflicts", adv.get("canonical_conflicts", 0), "in %d canonical cluster%s" % (
+                     adv.get("canonical_clusters", 0), "" if adv.get("canonical_clusters", 0) == 1 else "s")),
+                 ("Indexability conflicts", adv.get("indexability_conflicts", 0), "pages and sitemap URLs with mixed signals"),
+                 ("JS rendering differences", "Not measured" if diff is None else diff,
+                  "rendering was off" if diff is None else "of %d pages rendered" % adv.get("rendered", 0))]
+        for col, (label, value, note) in zip(st.columns(len(items)), items):
+            with col.container(border=True):
+                st.markdown("<small>%s</small>" % label, unsafe_allow_html=True)
+                st.markdown("<span style='font-size:%s;font-weight:700'>%s</span>" % (
+                    "1.6rem" if isinstance(value, int) else "1.1rem", f"{value:,}" if isinstance(value, int) else value), unsafe_allow_html=True)
+                st.caption(note + " · details in the Excel report")
+
     # ---------------------------------------------------------------- row 3: top issues · depth · status codes
     left, right = st.columns([1.5, 1])
     with left:

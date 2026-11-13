@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+- Nine advanced checks, inside the existing 11 sheets (no new tabs):
+  - URL parameters: tracking parameters in internal links, duplicate parameter variants, parameter URLs in the sitemap, many
+    variants of one path. Private-looking values (sessions, tokens, emails) are hidden in the report.
+  - Canonical clusters: a filterable table on Technical SEO, with declared and resolved canonical, content similarity and conflict type.
+  - Main content word count: total, main-content and boilerplate words, extraction method and confidence; the review threshold
+    depends on the page type (contact, gallery, legal and utility pages aren't judged).
+  - Indexability conflicts with evidence: noindex or canonicalised URLs in the sitemap, sitemap URLs blocked by robots.txt,
+    canonical to a broken/redirecting/noindex page, several canonicals, noindex plus canonical, JavaScript removing noindex.
+  - JavaScript comparison (installed version): title, description, H1, canonical, robots, words, schema and internal links,
+    each Added/Removed/Modified/Unchanged; rendered-only, removed and changed links on Internal Links.
+  - Pagination: page numbers, crawlable next links, loops, broken next links, page 2+ canonicalised to page 1.
+  - URL structure: depth, length, parameters, repeated segments, case duplicates, trailing-slash consistency.
+  - Internal anchor distribution: generic, empty and repetitive contextual anchors per linked page, menus and footers counted apart.
+- New settings: JavaScript comparison Off / Selective / All, maximum pages to render (25–500, default 100), main-content
+  threshold (100–1,000 words, default 300), URL length threshold (75–250, default 115). Also on the command line.
+- Dashboard (Excel and app): parameter URLs, canonical conflicts, indexability conflicts and rendering differences.
+- Fixed: the app's dashboard crashed on URL-list audits.
+
 ## 0.3.0
 
 - New Excel report with 11 sheets: Dashboard (KPI cards, native issue-distribution and severity charts, top priorities, audit

@@ -65,7 +65,7 @@ def add_dashboard(wb, m):
              ("Issue–URL Records", len(page_issues), "#,##0",
               "%d rules · %d site-wide finding%s" % (len({i.rule for i in page_issues}), len(site_findings), "" if len(site_findings) == 1 else "s")),
              ("Pages With Schema Issues", schema_pages, "#,##0", "of %d HTML pages" % m.eligible),
-             ("Pages Flagged for Thin Content", thin_pages, "#,##0", "under 300 words of main content")]
+             ("Pages Flagged for Thin Content", thin_pages, "#,##0", "below the main-content threshold for the page type")]
     for k, (label, value, fmt, note) in enumerate(cards):
         c1, c3 = get_column_letter(2 + 3 * k), get_column_letter(4 + 3 * k)
         card_fill = CARD_FILLS[k]
@@ -172,6 +172,29 @@ def add_dashboard(wb, m):
                 "Health score: average page score (%d) minus site-wide penalties (%d; 4 per failed and 1 per warning site check, "
                 "at most 25) = %d / 100.  Severity is per rule (Critical, High, Medium, Low). Priority P0–P3 ranks the tasks: the rules "
                 "are on sheet 11." % (m.score_avg, m.score_penalty, m.score), Font(name=FONT, size=9, color=MUTED), LIGHT_BG)
+    # Advanced technical checks (six cards, same grid as the KPI cards)
+    adv = (getattr(m.post, "advanced", None) or {}).get("counts", {})
+    _merge_text(ws, "B39:S39", "Advanced technical checks", Font(name=FONT, size=12, bold=True, color=NAVY), align=Alignment(vertical="center"))
+    rendered_on = m.settings.get("render_js", "off") != "off"
+    acards = [("Parameter URLs", adv.get("param_urls", 0), "found in links, sitemap or crawl (sheet 06)"),
+              ("Canonical Conflicts", adv.get("canonical_conflicts", 0), "in %d canonical cluster%s (sheet 06)" % (
+                  adv.get("canonical_clusters", 0), "" if adv.get("canonical_clusters", 0) == 1 else "s")),
+              ("Indexability Conflicts", adv.get("indexability_conflicts", 0), "pages and sitemap URLs with mixed signals"),
+              ("JS Rendering Differences", adv.get("render_diff") if rendered_on and adv.get("render_diff") is not None else "Not measured",
+               ("of %d pages rendered" % adv.get("rendered", 0)) if rendered_on else "rendering was off (installed version only)"),
+              ("Pagination Series", adv.get("pagination_series", 0), "paginated lists found"),
+              ("Anchor Text Findings", adv.get("anchor_findings", 0), "linked pages with weak contextual anchors")]
+    for k, (label, value, note) in enumerate(acards):
+        c1, c3 = get_column_letter(2 + 3 * k), get_column_letter(4 + 3 * k)
+        _merge_text(ws, "%s40:%s40" % (c1, c3), label, Font(name=FONT, size=10, bold=True, color=MUTED), LIGHT_BG,
+                    Alignment(vertical="center", horizontal="left", indent=1))
+        cell = _merge_text(ws, "%s41:%s42" % (c1, c3), value,
+                           Font(name=FONT, size=20 if isinstance(value, int) else 12, bold=True, color=DARK_GREEN), LIGHT_BG,
+                           Alignment(vertical="center", horizontal="left", indent=1))
+        cell.number_format = "#,##0"
+        _merge_text(ws, "%s43:%s43" % (c1, c3), note, Font(name=FONT, size=9, color=MUTED), LIGHT_BG,
+                    Alignment(vertical="center", horizontal="left", indent=1, wrap_text=True))
+    ws.row_dimensions[43].height = 24
     for rng in ("B30:S33", "B35:S37"):
         for row in ws[rng]:
             for cell in row:

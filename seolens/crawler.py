@@ -13,8 +13,8 @@ from concurrent.futures.process import BrokenProcessPool
 
 from . import MAX_URLS, ONLINE_MAX_URLS
 from .analyze import analyze_page
-from .htmltools import (FILE_EXT_RE, NON_PAGE_PATH_RE, bare_host, is_bot_check_page, is_utility_link, parse_url, path_of,
-                        queue_key)
+from .htmltools import (FILE_EXT_RE, NON_PAGE_PATH_RE, bare_host, is_bot_check_page, is_internal, is_utility_link, norm, parse_url,
+                        path_of, queue_key)
 from .net import Fetcher, Response, find_robots_group, parse_robots, read_sitemap, robots_allows
 from .renderer import Renderer, tags_from_requests
 from .throttle import SPEEDS, Throttle
@@ -74,6 +74,54 @@ def classify(ch, served_before):
     return "OK", None
 
 
+EMPTY_VALUES = {"", "missing", "none", "not specified", "(empty)", "0"}
+RENDER_FIELDS = [("Title", "Meta Title"), ("Meta description", "Meta Description"), ("H1", "H1 Text"), ("Canonical", "Canonical URL"),
+                 ("Robots", "Meta Robots"), ("Structured data", "Schema Types")]
+
+
+def _internal_links(row, ex):
+    p = parse_url(row.get("Final URL") or row["URL"])
+    root = bare_host(p["host"]) if p else ""
+    out = {}
+    for u, anchor, *_ in ex.get("links", []):
+        q = parse_url(u)
+        if q and is_internal(bare_host(q["host"]), root):
+            out.setdefault(norm(u), (u, anchor))
+    return out
+
+
+def compare_render(raw_row, raw_ex, row, ex):
+    """Raw HTML vs the rendered page: [(field, Added | Removed | Modified | Unchanged, raw value, rendered value)]."""
+    out = []
+    for label, col in RENDER_FIELDS:
+        a, b = str(raw_row.get(col, "") or "").strip(), str(row.get(col, "") or "").strip()
+        ea, eb = a.lower() in EMPTY_VALUES, b.lower() in EMPTY_VALUES
+        state = "Unchanged" if a == b or (ea and eb) else "Added" if ea else "Removed" if eb else "Modified"
+        out.append((label, state, "" if ea else a, "" if eb else b))
+    num = lambda v: v if isinstance(v, int) else 0  # noqa: E731
+    for label, a, b in (("Main content words", num(raw_row.get("Word Count")), num(row.get("Word Count"))),
+                        ("Internal links", len(_internal_links(raw_row, raw_ex)), len(_internal_links(row, ex)))):
+        # Small differences (ads, dates, counters) are not a change.
+        if a == b or (a and b and abs(a - b) <= max(10, 0.1 * max(a, b))):
+            state = "Unchanged"
+        else:
+            state = "Added" if not a else "Removed" if not b else "Modified"
+        out.append((label, state, a, b))
+    return out
+
+
+def compare_links(raw_row, raw_ex, row, ex):
+    """Internal links only in the rendered page, only in the raw HTML, and links whose destination JavaScript changed."""
+    raw, ren = _internal_links(raw_row, raw_ex), _internal_links(row, ex)
+    added = [list(ren[k]) for k in ren if k not in raw]
+    removed = [list(raw[k]) for k in raw if k not in ren]
+    by_anchor = {a.lower(): u for u, a in removed if a and not a.startswith("[")}
+    changed = [[a, by_anchor[a.lower()], u] for u, a in added if a and a.lower() in by_anchor]
+    moved = {c[1] for c in changed} | {c[2] for c in changed}
+    return {"added": [x for x in added if x[0] not in moved][:100], "removed": [x for x in removed if x[0] not in moved][:100],
+            "changed": changed[:100], "js_nav": ex.get("js_nav", 0)}
+
+
 def merge_rendered(raw_row, raw_ex, row, ex, tags, browser):
     """row/ex = the rendered page (kept). Adds what changed compared with the raw HTML, and the tags seen in the browser."""
     issues = [i for i in row.get("_base_issues", []) if i not in ("Content may depend on JavaScript", "No analytics detected")]
@@ -105,6 +153,22 @@ def merge_rendered(raw_row, raw_ex, row, ex, tags, browser):
     if not analytics and "webPixelsConfigList" not in html_tags and "Shopify web pixels" not in html_tags:
         issues.append("No analytics detected")
     row["_base_issues"] = issues
+    diff = compare_render(raw_row, raw_ex, row, ex)
+    changes = [d for d in diff if d[1] != "Unchanged"]
+    show = lambda v: (str(v)[:80] or "none")  # noqa: E731
+    row["Rendering Check"] = "Measured (%s)" % browser
+    row["Rendering Differences"] = "; ".join("%s %s: %s → %s" % (f, st.lower(), show(a), show(b)) for f, st, a, b in changes) \
+        if changes else "No differences in the %d fields compared" % len(diff)
+    links = compare_links(raw_row, raw_ex, row, ex)
+    n_add, n_rem, n_chg, n_js = len(links["added"]), len(links["removed"]), len(links["changed"]), links["js_nav"]
+    parts = [("%d link%s only after rendering" % (n_add, "" if n_add == 1 else "s")) if n_add else "",
+             ("%d removed by JavaScript" % n_rem) if n_rem else "",
+             ("%d destination%s changed" % (n_chg, "" if n_chg == 1 else "s")) if n_chg else "",
+             ("%d script-only navigation control%s (no href)" % (n_js, "" if n_js == 1 else "s")) if n_js else ""]
+    row["JS Link Changes"] = " · ".join(p for p in parts if p) or "Same internal links before and after rendering"
+    # The raw HTML values are kept next to the rendered ones.
+    ex["render_diff"] = [list(d) for d in diff]
+    ex["render_links"] = links
     # Links found only after rendering are still followed by the crawl.
     ex["discovered"] = list(dict.fromkeys(raw_ex.get("discovered", []) + ex.get("discovered", [])))
 
@@ -148,6 +212,9 @@ class Crawler:
         self._new_pages = []
         self.done = set()               # queue indexes that have a page row
         self.renderer, self.rendered, self.render_note, self.home_tags = None, 0, "", None
+        self.render_chosen, self.render_failed = 0, 0
+        self.render_max = max(1, int(self.s.get("render_max") or 100))
+        self.opts = {"url_max": int(self.s.get("url_max") or 115), "content_min": int(self.s.get("content_min") or 300)}
         self.started = time.time()
 
     @property
@@ -362,9 +429,17 @@ class Crawler:
 
     def needs_render(self, idx, ch, row, ex):
         if row.get("Final Status") != 200 or ex.get("non_html") or str(row.get("Meta Title", "")).startswith("N/A"):
+            row["Rendering Check"] = "Not applicable (not an HTML page with status 200)"
             return False
         risky = not str(row.get("JS-Rendering Risk", "Low")).startswith("Low")
-        return self.s.get("render_js") == "all" or idx == 0 or risky
+        if not (self.s.get("render_js") == "all" or idx == 0 or risky):
+            row["Rendering Check"] = "Not measured (Selective mode: the HTML looked complete)"
+            return False
+        if self.render_chosen >= self.render_max:
+            row["Rendering Check"] = "Not measured (limit of %d rendered pages reached)" % self.render_max
+            return False
+        self.render_chosen += 1
+        return True
 
     def render_group(self, items):
         """items: [(idx, url, ch, row, ex)] that need rendering → the same list with the rendered rows."""
@@ -375,13 +450,17 @@ class Crawler:
             r = results.get(ch["final"]) or {}
             if r.get("error") or not r.get("html"):
                 raw_row["JS-Rendering Risk"] = str(raw_row.get("JS-Rendering Risk", "")) + " · Not rendered: " + (r.get("error") or "no HTML")
+                raw_row["Rendering Check"] = "Failed: " + (r.get("error") or "the browser returned no HTML")[:200]
+                self.render_failed += 1
                 out.append((idx, url, ch, raw_row, raw_ex))
                 continue
             raw = ch["response"]
             rendered = Response(raw.url, raw.status, raw.headers, raw.content, r["html"])
             try:
                 row, ex = analyze_page(url, dict(ch, response=rendered))
-            except Exception:  # noqa: BLE001 - keep the raw analysis
+            except Exception as e:  # noqa: BLE001 - keep the raw analysis
+                raw_row["Rendering Check"] = "Failed: the rendered page couldn't be analysed (%s)" % str(e)[:150]
+                self.render_failed += 1
                 out.append((idx, url, ch, raw_row, raw_ex))
                 continue
             merge_rendered(raw_row, raw_ex, row, ex, tags_from_requests(r.get("requests", [])), self.renderer.name)
@@ -410,6 +489,7 @@ class Crawler:
             self.cpu_pool = None
 
     def analyse(self, url, ch):
+        ch["opts"] = self.opts  # kept in ch, so a page rendered later is analysed with the same settings
         if self.cpu_pool:
             try:
                 return self.cpu_pool.submit(analyze_page, url, ch).result()

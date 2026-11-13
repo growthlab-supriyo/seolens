@@ -3,7 +3,8 @@
 
 THEMES = {
     "Crawlability & indexing": ["Page fetch failed", "Page not returning 200", "Page is noindex", "Redirect chain", "URL redirects",
-                                "Bot-check page", "Search results page is indexable", "isn't indexable", "canonical", "Canonical"],
+                                "Bot-check page", "Search results page is indexable", "isn't indexable", "canonical", "Canonical",
+                                "parameter", "Parameter", "Paginated"],
     "On-page SEO": ["meta title", "Title length", "meta description", "Description length", "H1", "title tags",
                     "Title and H1", "Title year", "viewport"],
     "Content": ["Thin content", "Duplicate content", "Near-duplicate", "Placeholder", "Thin archive", "date", "Date",

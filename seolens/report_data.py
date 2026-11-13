@@ -49,7 +49,7 @@ EXPECTED = {
     "Duplicate meta description": "A meta description used by this page only",
     "Duplicate H1": "An H1 used by this page only",
     "Title and H1 don't match": "Title and H1 describe the same topic",
-    "Thin content": "300+ words of main content (unless the page type needs less)",
+    "Thin content": "Main content at or above the review threshold for this page type",
     "Duplicate content": "Main content not copied from another page",
     "Near-duplicate content": "Main content clearly different from other pages",
     "Placeholder text found": "No placeholder or sample text",
@@ -85,6 +85,13 @@ EXPECTED = {
     "Core Web Vitals need improvement": "LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1 (real users)",
     "Internal links using http://": "Internal links use https://",
     "Generic anchor text": "Link text that says where the link goes",
+    "Links without anchor text": "Every link has text, an image alt or an aria-label",
+    "Tracking parameters in internal links": "Internal links point to clean URLs (no utm_ or click IDs)",
+    "Parameter URL duplicates another page": "Parameter variants point their canonical to the clean URL",
+    "Canonical to a different page": "Canonical points to a page with the same content",
+    "Paginated page canonicalised to page 1": "Each page of a series has a self-referencing canonical",
+    "Noindex page with a canonical to another URL": "Either noindex or a canonical to another URL, not both",
+    "URL format issues": "Short, lowercase, hyphenated URLs (review only: don't change established URLs for looks)",
     "Bot-check page instead of content": "The real page content, not a firewall check",
 }
 TECHNICAL_THEMES = {"Crawlability & indexing", "International", "Performance"}
@@ -288,9 +295,20 @@ def _coverage(crawler, post, s, rows, link_graph):
                 "Real-user data from the Chrome UX Report" if cwv else "Not measured: no CrUX API key was given",
                 "" if cwv else "Add a free CrUX API key under More settings"])
     rendered = getattr(crawler, "rendered", 0)
-    cov.append(["JavaScript rendering", None, rendered if s.get("render_js", "off") != "off" else None, None, None,
-                ("%d page(s) rendered in a browser" % rendered) if s.get("render_js", "off") != "off" else "Not measured: raw HTML only (rendering off)",
-                ""])
+    if s.get("render_js", "off") != "off":
+        st = Counter(("Measured" if v.startswith("Measured") else "Failed" if v.startswith("Failed") else
+                      "Limit" if "limit" in v else "Skipped" if v.startswith("Not measured") else "n/a")
+                     for v in (str(r.get("Rendering Check", "")) for r in rows) if v)
+        eligible = st["Measured"] + st["Failed"] + st["Limit"] + st["Skipped"]
+        cov.append(["JavaScript rendering", eligible, st["Measured"], eligible - st["Measured"], pct(st["Measured"], eligible),
+                    "; ".join(x for x in ("%d rendered" % st["Measured"],
+                                          "%d not selected (the HTML looked complete)" % st["Skipped"] if st["Skipped"] else "",
+                                          "%d over the limit of %s rendered pages" % (st["Limit"], s.get("render_max", 100)) if st["Limit"] else "",
+                                          "%d failed" % st["Failed"] if st["Failed"] else "") if x) +
+                    ("" if getattr(crawler, "renderer", None) or rendered else " · " + str(getattr(crawler, "render_note", ""))),
+                    "Raise the render limit or choose All under More settings" if st["Limit"] else ""])
+    else:
+        cov.append(["JavaScript rendering", None, None, None, None, "Not measured: raw HTML only (rendering off)", ""])
     if not link_graph:
         cov.append(["Click depth, inlinks, orphan pages", None, None, None, None, "Not measured: a URL-list audit doesn't follow links",
                     "Audit the whole site to measure them"])

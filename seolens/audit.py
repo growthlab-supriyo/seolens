@@ -5,6 +5,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+from .advanced import run_advanced
 from .checks import PostChecks
 from .crawler import Crawler, Paused, Stopped  # noqa: F401 - re-exported
 from .report import write_site_map
@@ -24,7 +25,10 @@ DEFAULT_SETTINGS = {
     "check_external": True,
     "site_wide_health": False,   # folder audits: also run the whole-domain checks
     "site_type": "auto",
-    "render_js": "off",          # off | auto (start page + pages that look empty) | all
+    "render_js": "off",          # off | auto = Selective (start page + pages that look empty) | all
+    "render_max": 100,           # most pages rendered per audit (25-500)
+    "content_min": 300,          # main-content review threshold in words (100-1,000), adjusted by page type
+    "url_max": 115,              # URL length review threshold in characters (75-250)
     "out_dir": str(REPORTS),
 }
 
@@ -62,6 +66,9 @@ def run_audit(settings, report=lambda st: None, stop=None, store=None, run_id=No
     site = run_site_health(crawler, report)
     post.analyze_links(site)
     post.cross_page()
+    report({"phase": "site", "step": "Advanced checks", "log": "Checking parameters, canonical clusters, indexability conflicts, "
+                                                              "pagination and anchors"})
+    post.advanced = run_advanced(crawler, post, site)
     crux_key = s.get("crux_key") or os.environ.get("SEOLENS_CRUX_KEY", "")
     if crux_key:
         from .crux import add_crux
@@ -86,7 +93,7 @@ def run_audit(settings, report=lambda st: None, stop=None, store=None, run_id=No
     checks = site["checks"] + post.checks
     result = {"xlsx": xlsx, "map": map_path, "overall": overall, "pages": len(crawler.rows),
               "checks": [c for c in checks if c["status"] in ("Fail", "Warn")],
-              "broken": [list(b) for b in post.broken_rows[:5000]]}
+              "broken": [list(b) for b in post.broken_rows[:5000]], "advanced": post.advanced.get("counts", {})}
     report({"phase": "done", "finished": finished.timestamp(), "xlsx": xlsx, "map": map_path, "overall": overall,
             "log": "Audit complete: %d pages · Overall Health Score %d/100" % (len(crawler.rows), overall)})
     return result

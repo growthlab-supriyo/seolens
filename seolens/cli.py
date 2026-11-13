@@ -38,7 +38,9 @@ def _crawl(a):
     from .store import Store
     from .worker import main as worker_main
     settings = {"speed": a.speed, "max_pages": a.max, "render_js": a.render, "follow_links": not a.no_follow,
-                "respect_robots": not a.ignore_robots}
+                "respect_robots": not a.ignore_robots, "include_query": a.params,
+                "render_max": min(500, max(25, a.render_max)), "content_min": min(1000, max(100, a.content_min)),
+                "url_max": min(250, max(75, a.url_max))}
     if a.out:
         settings["out_dir"] = a.out
     if a.list:
@@ -97,7 +99,11 @@ def main(argv=None):
     c.add_argument("--list", help="text file with one URL per line")
     c.add_argument("--max", type=int, default=500)
     c.add_argument("--speed", choices=["Polite", "Medium", "Fast"], default="Medium")
-    c.add_argument("--render", choices=["off", "auto", "all"], default="off")
+    c.add_argument("--render", choices=["off", "auto", "all"], default="off", help="JavaScript comparison: auto = Selective")
+    c.add_argument("--render-max", type=int, default=100, help="most pages to render (25-500)")
+    c.add_argument("--content-min", type=int, default=300, help="main-content review threshold in words (100-1000)")
+    c.add_argument("--url-max", type=int, default=115, help="URL length review threshold in characters (75-250)")
+    c.add_argument("--params", action="store_true", help="also crawl URLs with ?parameters")
     c.add_argument("--no-follow", action="store_true", help="don't follow links (sitemap + start URL only)")
     c.add_argument("--ignore-robots", action="store_true", help="for your own site only")
     c.add_argument("--out", help="folder for the reports")

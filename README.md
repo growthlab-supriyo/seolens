@@ -45,6 +45,7 @@ seolens
 | Markup | JSON-LD, Microdata, RDFa, missing schema properties, Open Graph, Twitter cards |
 | International | hreflang (return links, codes, targets), `html lang`, og:locale |
 | Performance signals | Heavy images, render-blocking scripts, third-party scripts, page weight |
+| Advanced technical | URL parameters (tracking links, duplicate variants, private values hidden), canonical clusters, indexability conflicts with evidence, pagination, URL structure, main-content vs total words, internal anchor distribution, and (installed version) raw HTML vs JavaScript-rendered comparison of tags, words, schema and internal links |
 
 **Dashboard tabs:** Overview (health score, crawled-pages breakdown, errors, warnings and notices, thematic scores, top issues, click depth), Issues, All pages (filter and export CSV), Response codes, Blocked & failed, Broken links and Site health. The **Excel report** has 11 sheets: a Dashboard (KPI cards, issue-distribution and severity charts, top priorities, audit completeness), an Action Plan to assign and track fixes, Issue Details (one row per URL per rule), Page Audit, On-Page SEO, Technical SEO, Internal Links, Images & Speed, Schema & Social, Crawl Coverage and Raw & Audit Info, plus hidden raw-data sheets.
 
@@ -78,7 +79,10 @@ The database and reports are stored in `~/.seolens/` (`C:\Users\<you>\.seolens\`
 
 - 10,000 URLs per crawl.
 - Performance checks are signals from the HTML, not measured Core Web Vitals. PageSpeed Insights integration is planned.
-- Word count is approximate on pages with a lot of interface text.
+- Word count is approximate on pages with a lot of interface text. The report says how the main content was found and how confident that is.
+- Canonicals, sitemaps, pagination markup, URL length and anchor repetition are signals: conflicts are listed for review, not as proof of what Google indexes or picks as canonical.
+- JavaScript comparison needs the optional browser (installed version only). Selective mode renders the start page and pages that look incomplete without JavaScript, up to a limit (100 by default); every other page is marked "Not measured", never assumed equal.
+- URLs with ?parameters are only crawled when you turn it on; otherwise they are analysed from internal links and the sitemap. Parameters are never stripped or merged.
 
 ## Development
 

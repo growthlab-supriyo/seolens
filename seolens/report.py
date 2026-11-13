@@ -13,15 +13,17 @@ from .checks import PRIORITY_RANK, fix_text, priority
 from .htmltools import norm, parse_url, unique
 
 COLUMNS = [
-    "URL", "Initial Status", "Final Status", "Crawl Access", "Redirect Hops", "Redirect Chain", "Final URL", "URL Issues", "Indexable", "HTML Size (KB)",
-    "Meta Title", "Title Length", "Meta Description", "Description Length", "Canonical URL", "Canonical Target Status", "Meta Robots",
+    "URL", "Initial Status", "Final Status", "Crawl Access", "Redirect Hops", "Redirect Chain", "Final URL", "URL Issues", "URL Structure", "URL Depth", "URL Parameters", "Indexable", "HTML Size (KB)",
+    "Meta Title", "Title Length", "Meta Description", "Description Length", "Canonical URL", "Canonical Target Status", "Canonical Cluster", "Meta Robots",
+    "Indexability Conflicts",
     "HTML Lang", "OG Locale", "Hreflang Tags", "Hreflang Issues", "Viewport", "Open Graph", "Twitter Card",
-    "H1 Count", "H1 Text", "Title vs H1", "H2 Tags (body)", "H3 Tags (body)", "Word Count", "Archive Page",
+    "H1 Count", "H1 Text", "Title vs H1", "H2 Tags (body)", "H3 Tags (body)", "Word Count", "Total Words", "Boilerplate Words", "Content Extraction", "Content Type", "Content Flag",
+    "Archive Page", "Pagination",
     "Images Missing Alt (URLs)", "Heavy Images (200 KB+)",
     "Linked From (pages)", "Internal Links on Page (content)", "Internal Link Anchors (content)", "External Links on Page (content)", "External Link Anchors (content)",
     "Link URL Types", "Broken Links (on page)", "Orphan Page", "Click Depth", "Link Score (0-100)",
     "Render-Blocking Scripts", "Third-Party Domains", "Core Web Vitals", "LCP (s)", "INP (ms)", "CLS",
-    "CMS / Platform", "Tracking Detected",
+    "CMS / Platform", "Tracking Detected", "Rendering Check", "Rendering Differences", "JS Link Changes",
     "Schema Types", "Schema Parse Errors", "Schema Missing Properties", "Breadcrumbs",
     "Placeholder Text",
     "Duplicate Title", "Duplicate Description", "Duplicate H1", "Duplicate Content", "Near Duplicate",

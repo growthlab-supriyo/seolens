@@ -53,7 +53,8 @@ def test_sheets_order_tables_and_charts(site, tmp_path):
     assert len(wb["01 Dashboard"]._charts) == 2  # native Excel charts, not pictures
     for name in SHEETS[1:]:
         ws = wb[name]
-        assert len(ws.tables) == 1, name
+        # Technical SEO also has the canonical-cluster and parameter tables below its page table
+        assert len(ws.tables) == (3 if name == "06 Technical SEO" else 1), name
         ref = list(ws.tables.values())[0].ref
         assert ref.startswith("A6:"), (name, ref)  # filter header on row 6
         assert ws.freeze_panes in ("A7", "B7"), name

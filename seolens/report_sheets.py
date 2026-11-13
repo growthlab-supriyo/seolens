@@ -46,6 +46,24 @@ def _sev_rank(rule):
     return PRIORITY_RANK.get(priority(rule), 2)
 
 
+def _adv(m):
+    return getattr(m.post, "advanced", None) or {}
+
+
+def _render_status(r):
+    """Measured | Failed | Not measured | Not applicable (never blank: rendering off means 'Not measured')."""
+    v = str(r.get("Rendering Check", "") or "")
+    if v:
+        return v.split(" (")[0].split(":")[0]
+    if r.get("Final Status") != 200 or str(r.get("Meta Title", "")).startswith("N/A"):
+        return "Not applicable"
+    return NOT_MEASURED
+
+
+def _int(v):
+    return v if isinstance(v, int) else ""
+
+
 def _top_issue(row, keep=lambda rule: True):
     from .checks import priority
     lst = [i for i in page_issues(row) if keep(i)]
@@ -148,11 +166,12 @@ def _page_audit(wb, m):
                      r.get("Word Count", "") if isinstance(r.get("Word Count"), int) else "", _clean(r.get("Canonical URL", "")),
                      issue or "Nothing to fix", crit, r.get("Medium") or 0, r.get("Low") or 0,
                      (r.get("Click Depth") if isinstance(r.get("Click Depth"), int) else _clean(r.get("Click Depth", ""))) if m.link_graph else NOT_MEASURED,
-                     inlinks(r) if m.link_graph else NOT_MEASURED])
+                     inlinks(r) if m.link_graph else NOT_MEASURED, _int(r.get("URL Depth")), _clean(r.get("URL Parameters", "")) or "None",
+                     _render_status(r)])
     first, last = add_table(ws, "PageAudit", ["URL", "Page Type", "HTTP Status", "Indexable", "Page Score", "Title", "Meta Description", "H1",
-                                              "Word Count", "Canonical", "Action Needed", "Critical + High", "Medium", "Low",
-                                              "Click Depth", "Inlinks"],
-                            data, [55, 16, 8, 22, 8, 45, 50, 35, 9, 45, 34, 9, 8, 8, 9, 8], wrap=(6, 7, 11))
+                                              "Main Content Words", "Canonical", "Action Needed", "Critical + High", "Medium", "Low",
+                                              "Click Depth", "Inlinks", "URL Depth (folders)", "URL Parameters", "JS Rendering"],
+                            data, [55, 16, 8, 22, 8, 45, 50, 35, 9, 45, 34, 9, 8, 8, 9, 8, 9, 22, 13], wrap=(6, 7, 11))
     _url_links(ws, first, len(m.rows), m.rows)
     from openpyxl.formatting.rule import CellIsRule
     from .report_style import fill
@@ -177,7 +196,8 @@ ONPAGE = {"On-page SEO", "Content"}
 def _on_page(wb, m):
     ws = wb.create_sheet("05 On-Page SEO")
     title_block(ws, "On-Page SEO", "Titles, descriptions, headings and content, with duplicate groups. Length is in characters "
-                                   "(pixel width is not measured).", _meta(m))
+                                   "(pixel width is not measured). Main content words leave out menus, header, footer and sidebars; "
+                                   "the review threshold depends on the page type.", _meta(m))
     groups, gid = defaultdict(list), {}
     for r in m.rows:
         for col, label in (("Meta Title", "Title"), ("Meta Description", "Description"), ("H1 Text", "H1")):
@@ -197,13 +217,17 @@ def _on_page(wb, m):
                ("H1 Text", "H1")) if (label, str(r.get(col, "")).strip().lower()) in gid]
         issue, _ = _top_issue(r, lambda rule: theme_of(rule) in ONPAGE or "alt text" in rule)
         from .checks import fix_text
-        data.append([r["URL"], page_type(r), _clean(r.get("Meta Title", "")), r.get("Title Length", ""), _clean(r.get("Meta Description", "")),
-                     r.get("Description Length", ""), _clean(r.get("H1 Text", "")),
-                     r.get("Word Count", "") if isinstance(r.get("Word Count"), int) else "", "; ".join(dup),
+        data.append([r["URL"], r.get("Content Type") or page_type(r), _clean(r.get("Meta Title", "")), r.get("Title Length", ""),
+                     _clean(r.get("Meta Description", "")), r.get("Description Length", ""), _clean(r.get("H1 Text", "")),
+                     _int(r.get("Total Words")), _int(r.get("Word Count")), _int(r.get("Boilerplate Words")),
+                     _clean(r.get("Content Extraction", "")), _clean(r.get("Content Flag", "")), "; ".join(dup),
                      ("%s: %s" % (issue, fix_text(issue))) if issue else "Nothing to change"])
     first, last = add_table(ws, "OnPage", ["URL", "Page Type", "Title", "Title Length (characters)", "Meta Description",
-                                           "Meta Length (characters)", "H1", "Word Count", "Duplicate Group", "Suggested Edit"],
-                            data, [55, 16, 45, 11, 55, 11, 38, 9, 30, 60], wrap=(3, 5, 7, 10), empty_note="No HTML pages were audited.")
+                                           "Meta Length (characters)", "H1", "Total Words", "Main Content Words", "Boilerplate Words",
+                                           "Extraction Method", "Content Flag", "Duplicate Group", "Suggested Edit"],
+                            data, [55, 18, 45, 11, 55, 11, 38, 9, 9, 10, 30, 34, 30, 60], wrap=(3, 5, 7, 11, 12, 14),
+                            empty_note="No HTML pages were audited.")
+    colour_prefix(ws, 12, first, last, {"Below": "FEF6C7"})
     finish_sheet(ws, 4, freeze="B7")
 
 
@@ -211,7 +235,9 @@ def _on_page(wb, m):
 
 def _technical(wb, m):
     ws = wb.create_sheet("06 Technical SEO")
-    title_block(ws, "Technical SEO", "Status, indexability, robots, canonical, redirects and sitemap, one row per page.", _meta(m))
+    title_block(ws, "Technical SEO", "Status, indexability, robots, canonical, redirects, sitemap, parameters, pagination and "
+                                     "JavaScript rendering, one row per page; then the canonical clusters and the parameter URLs. "
+                                     "Canonicals and sitemaps are signals: conflicts are for review, not proof of what Google does.", _meta(m))
     from .checks import fix_text, priority
     data = []
     for r in m.rows:
@@ -226,16 +252,42 @@ def _technical(wb, m):
             in_sm = "No sitemap found"
         else:
             in_sm = "Yes" if norm(r.get("Final URL") or r["URL"]) in m.sitemap_keys or norm(r["URL"]) in m.sitemap_keys else "No"
+        rend = _render_status(r)
+        diffs = _clean(r.get("Rendering Differences", "")) if rend == "Measured" else rend
         data.append([r["URL"], status, _clean(r.get("Indexable", "")), _clean(r.get("Meta Robots", "")) or "Not set",
                      ("%s (%s)" % (canon, cstat)) if canon and cstat else canon or "Missing",
-                     ("%d: %s" % (hops, chain)) if hops else "None", in_sm, issue or "None",
+                     ("%d: %s" % (hops, chain)) if hops else "None", in_sm, _clean(r.get("URL Parameters", "")) or "None",
+                     _clean(r.get("Canonical Cluster", "")), _clean(r.get("Indexability Conflicts", "")) or "None",
+                     _clean(r.get("Pagination", "")), diffs, issue or "None",
                      priority(issue) if issue else "", fix_text(issue) if issue else ""])
     first, last = add_table(ws, "Technical", ["URL", "HTTP Status", "Indexable", "Meta Robots", "Canonical", "Redirect Hops / Chain",
-                                              "In Sitemap", "Technical Issue", "Severity", "Suggested Fix"],
-                            data, [55, 11, 24, 30, 50, 40, 12, 32, 10, 55], wrap=(4, 5, 6, 10))
+                                              "In Sitemap", "URL Parameters", "Canonical Cluster", "Indexability Conflicts", "Pagination",
+                                              "JS Rendering Differences", "Technical Issue", "Severity", "Suggested Fix"],
+                            data, [55, 11, 24, 30, 50, 40, 12, 22, 34, 50, 40, 50, 32, 10, 55], wrap=(4, 5, 6, 9, 10, 11, 12, 15))
     _url_links(ws, first, len(m.rows), m.rows)
-    colour_values(ws, 9, first, last, SEVERITY_PALE)
+    colour_values(ws, 14, first, last, SEVERITY_PALE)
     colour_prefix(ws, 3, first, last, {"No": "FDE2E2"})
+    colour_prefix(ws, 10, first, last, {"None": "FFFFFF", "": "FEF6C7"})
+    adv = _adv(m)
+
+    top = last + 3
+    put(ws, top - 1, 1, "Canonical clusters: pages that declare another page as canonical, grouped by the canonical they resolve to. "
+                        "Pages that only point to themselves are left out.").font = Font(name=FONT, bold=True, size=11)
+    first, last = add_table(ws, "CanonicalClusters", ["Cluster ID", "Source URL", "Declared Canonical", "Resolved Canonical", "Cluster Size",
+                                                      "HTTP Status", "Indexability", "Content Similarity", "Conflict Type"],
+                            adv.get("clusters", []), [], top=top, wrap=(9,),
+                            empty_note="No canonical clusters: every page with a canonical points to itself.")
+    colour_prefix(ws, 9, first, last, {"Possible mismatch": "FDE2E2", "Conflicting": "FDE2E2", "Canonical target problem": "FDE2E2",
+                                       "Expected": "E8F6EB", "Self": "E8F6EB"})
+
+    top = last + 3
+    crawled = m.settings.get("include_query") or m.mode == "list"
+    put(ws, top - 1, 1, "URL parameters: URLs with ?parameters found in internal links, the sitemap or the crawl. Private-looking values "
+                        "(sessions, tokens, emails) are hidden." + ("" if crawled else " Parameter URLs were not crawled in this audit, so "
+                                                                   "their content is not measured.")).font = Font(name=FONT, bold=True, size=11)
+    add_table(ws, "ParameterURLs", ["URL", "Clean URL", "Parameters", "Parameter Count", "Found Via", "Crawl Status", "Canonical",
+                                    "Indexability", "Finding"],
+              adv.get("params", []), [], top=top, wrap=(1, 5, 6, 9), empty_note="No URLs with ?parameters were found.")
     finish_sheet(ws, 5, freeze="B7")
 
 
@@ -243,8 +295,9 @@ def _technical(wb, m):
 
 def _internal_links(wb, m):
     ws = wb.create_sheet("07 Internal Links")
-    title_block(ws, "Internal Links", "Problem links (broken, redirecting, noindex, canonicalised, internal and external), then one "
-                                      "link summary per page. 'Edge Type' tells them apart.", _meta(m))
+    title_block(ws, "Internal Links", "Problem links (broken, redirecting, noindex, canonicalised, internal and external), one link "
+                                      "summary per page, anchor-text distribution per linked page and, when JavaScript rendering ran, links "
+                                      "that differ between the raw HTML and the rendered page. 'Edge Type' tells them apart.", _meta(m))
     by_url = {}
     for r in m.rows:
         by_url[norm(r["URL"])] = r
@@ -280,11 +333,35 @@ def _internal_links(wb, m):
         data.append(["Page link summary", r["URL"], "", "", "", r.get("Final Status", ""),
                      (r.get("Click Depth") if isinstance(r.get("Click Depth"), int) else _clean(r.get("Click Depth", ""))) if m.link_graph else NOT_MEASURED,
                      n_in if m.link_graph else NOT_MEASURED, "; ".join(flags), action])
+    adv = _adv(m)
+
+    def target_info(url):
+        t = by_url.get(norm(url))
+        if not t:
+            return "", "", ""
+        d = t.get("Click Depth") if m.link_graph else ""
+        return t.get("Final Status", ""), d if isinstance(d, int) else (_clean(d) if d else ""), inlinks(t) if m.link_graph else ""
+
+    for dest, n_src, n_c, n_m, n_var, top_anchors, finding in adv.get("anchors", []):
+        st, depth, n_in = target_info(dest)
+        data.append(["Anchor distribution", "%d linking page%s: %d contextual, %d menu/footer link%s" % (
+            n_src, "" if n_src == 1 else "s", n_c, n_m, "" if n_m == 1 else "s"), dest, top_anchors, "", st, depth, n_in,
+            "Anchors: " + finding, "In body text, link with words that describe this page; menus and footers are counted apart"])
+    actions = {"Rendered-only link": ("Only in the rendered page: found once JavaScript runs",
+                                      "If it matters, put it in the server HTML as a normal <a href> link (Google renders most pages, "
+                                      "but later)"),
+               "Removed by JavaScript": ("In the raw HTML, removed when JavaScript runs", "Check that the removal is intended"),
+               "Destination changed by JavaScript": ("JavaScript changes where this link goes",
+                                                     "Make the href in the HTML point to the final destination")}
+    for label, src, dest, anchor in adv.get("render_links", []):
+        st, depth, n_in = target_info(dest)
+        data.append([label, src, dest, anchor, "", st, depth, n_in, actions[label][0], actions[label][1]])
     first, last = add_table(ws, "InternalLinks", ["Edge Type", "Source URL", "Destination URL", "Anchor Text", "Follow", "Target Status",
                                                   "Click Depth", "Inlinks", "Issue", "Recommended Action"],
                             data, [26, 50, 50, 28, 12, 20, 10, 8, 30, 55], wrap=(9, 10), empty_note="No links were found.")
     colour_prefix(ws, 9, first, last, {"Broken": "FDE2E2", "Redirect": "FEF6C7", "Orphan": "FEF6C7", "Deep": "FEF6C7",
-                                       "Not reachable": "FDE2E2", "Links to": "FEF6C7", "Weak": "DCEBFE", "Couldn't verify": "EEF0F3"})
+                                       "Not reachable": "FDE2E2", "Links to": "FEF6C7", "Weak": "DCEBFE", "Couldn't verify": "EEF0F3",
+                                       "Anchors": "DCEBFE", "Only in the rendered": "FEF6C7", "JavaScript changes": "FEF6C7"})
     finish_sheet(ws, 6)
 
 
@@ -411,8 +488,15 @@ def _raw_and_info(wb, m, problems, ai_out):
         ("Maximum URLs", s.get("max_pages"), "", "Crawl settings"),
         ("Speed", s.get("speed", "Medium"), "Ended at %d pages at a time%s" % (c.conc, "; slowed down %d times: %s" % (c.slowdowns, c.slow_reason)
                                                                            if c.slowdowns else ""), "Crawl"),
-        ("JavaScript rendering", "Off" if s.get("render_js", "off") == "off" else s.get("render_js"),
-         getattr(c, "render_note", "") or ("%d pages rendered" % getattr(c, "rendered", 0)), "Crawl settings"),
+        ("JavaScript comparison", {"off": "Off (HTML only)", "auto": "Selective", "all": "All"}.get(s.get("render_js", "off"), s.get("render_js")),
+         (getattr(c, "render_note", "") or ("%d pages rendered" % getattr(c, "rendered", 0))) +
+         ("" if s.get("render_js", "off") == "off" else " · limit %s pages" % s.get("render_max", 100)), "Crawl settings"),
+        ("Main-content review threshold", "%s words" % s.get("content_min", 300),
+         "Half for the homepage, product, shop and about pages; contact, gallery, legal and utility pages and archives are not judged",
+         "Crawl settings"),
+        ("URL length review threshold", "%s characters" % s.get("url_max", 115), "A review signal, not an error", "Crawl settings"),
+        ("URLs with ?parameters", "Crawled" if s.get("include_query") or m.mode == "list" else "Not crawled (analysed from links and the sitemap)",
+         "Parameters are never stripped: a parameter URL is a separate URL", "Crawl settings"),
         ("robots.txt", "Respected" if s.get("respect_robots", True) else "Ignored (site owner's choice)", "", "Crawl settings"),
         ("External links", "Checked" if s.get("check_external", True) else "Not checked", "Up to %d URLs" % MAX_EXTERNAL_CHECKS, "Crawl settings"),
         ("Core Web Vitals", "CrUX (real users)" if any(r.get("Core Web Vitals") for r in m.rows) else NOT_MEASURED,
@@ -424,8 +508,8 @@ def _raw_and_info(wb, m, problems, ai_out):
         ("Severity", "Critical · High · Medium · Low", "Fixed per rule (how bad one finding is)", "SEO Lens rules"),
     ] + [("Priority %s" % p, text, "Task priority (what to do first), separate from severity", "SEO Lens rules") for p, text in PRIORITY_RULES] + [
         ("Template fix", "80% or more of HTML pages (and 20+ pages)", "Then one fix usually repairs every page", "SEO Lens rules"),
-        ("Thresholds", "Thin content: under 300 words · Heavy image: 200 KB+ · Deep page: 4+ clicks · Title 30–60 and description "
-                       "70–160 characters", "", "SEO Lens rules"),
+        ("Thresholds", "Thin content: below the main-content threshold for the page type · Heavy image: 200 KB+ · Deep page: 4+ clicks · "
+                       "Title 30–60 and description 70–160 characters · Deep URL path: more than 5 folders", "", "SEO Lens rules"),
         ("Check limits", "%d internal link targets · %d external URLs · %d image sizes" % (MAX_INTERNAL_CHECKS, MAX_EXTERNAL_CHECKS, MAX_IMAGE_CHECKS),
          "The most-linked or most-used are checked first", "SEO Lens rules"),
         ("Owner and Status", "Owner is blank and Status is 'To Do' on every new report", "SEO Lens never assigns owners; edits in an old "

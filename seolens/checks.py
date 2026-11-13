@@ -26,6 +26,12 @@ EXTRA_ISSUES = {
     "Heavy images": ["Medium", "Images of 200 KB or more slow the page down (LCP). Compress them, serve WebP/AVIF and size them to how they are shown (listed in the Heavy Images column)."],
     "Content only appears with JavaScript": ["High", "Most of this page's text appears only after JavaScript runs. Google renders JavaScript later and not always completely: render the main content on the server (SSR) or pre-render it."],
     "Links only appear with JavaScript": ["Medium", "Some internal links exist only after JavaScript runs, so crawlers that read the HTML (and Google, until it renders) miss them. Put important links in the server HTML as normal <a href> links."],
+    "Links without anchor text": ["Low", "Some links have no text, no image alt and no aria-label, so search engines and screen readers can't tell where they go. Add link text, an alt on the image, or an aria-label."],
+    "Tracking parameters in internal links": ["Medium", "Internal links on this page carry tracking parameters (utm_, gclid, fbclid…). They create duplicate URLs and overwrite the visitor's real traffic source in analytics: link to the clean URL instead."],
+    "Parameter URL duplicates another page": ["Medium", "This ?parameter URL shows the same content as the clean URL but is indexable with a self canonical. Point its canonical to the clean URL, or stop linking to the variant."],
+    "Canonical to a different page": ["Medium", "This page declares as its canonical a page with clearly different content. Google may ignore the hint or drop this page: point the canonical to itself unless the two pages really are the same."],
+    "Paginated page canonicalised to page 1": ["Medium", "Page 2+ of a series lists different items but points its canonical to page 1, so those items may not be found through it. Give each page of the series a self-referencing canonical."],
+    "Noindex page with a canonical to another URL": ["Medium", "This page is noindex and also points its canonical to another URL: mixed signals. Use one: a canonical (for a duplicate) or noindex (to keep it out of search)."],
     "JavaScript changes SEO tags": ["High", "The title, canonical or robots tag in the server HTML differs from what JavaScript sets in the browser. Google may use either: make the server HTML match the final version."],
 }
 

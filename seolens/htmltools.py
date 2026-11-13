@@ -320,6 +320,12 @@ MAIN_CONTENT_TOKEN = re.compile(r"^(entry-content|post-content|wd-entry-content|
 
 def main_content_html(content_html):
     """The main content area (article body, entry content, <article>, <main>), non-content blocks removed."""
+    return main_content_pick(content_html)[0]
+
+
+def main_content_pick(content_html):
+    """(main content HTML with non-content blocks removed, how it was found: 'articleBody' | 'content class' | 'article' |
+    'main' | '' when no content element was found and the whole page minus menus, header and footer is used)."""
     def pick(pred):
         best, best_len = "", 0
         for f in scan_elements(content_html, pred):
@@ -329,12 +335,14 @@ def main_content_html(content_html):
                 best, best_len = inner, ln
         return best if best_len > 200 else ""
 
-    root = (pick(lambda t, o: bool(re.search(r"itemprop=[\"']articleBody[\"']", o, re.I)))
-            or pick(lambda t, o: any(MAIN_CONTENT_TOKEN.match(x) for x in class_tokens(o)))
-            or pick(lambda t, o: t == "article")
-            or pick(lambda t, o: t == "main")
-            or content_html)
-    return strip_non_content(root)
+    for method, pred in (("articleBody", lambda t, o: bool(re.search(r"itemprop=[\"']articleBody[\"']", o, re.I))),
+                         ("content class", lambda t, o: any(MAIN_CONTENT_TOKEN.match(x) for x in class_tokens(o))),
+                         ("article", lambda t, o: t == "article"),
+                         ("main", lambda t, o: t == "main")):
+        root = pick(pred)
+        if root:
+            return strip_non_content(root), method
+    return strip_non_content(content_html), ""
 
 
 PRODUCT_CARD_TOKEN = re.compile(r"^(card-product|product-card|product-item|product-box|product-tile|product-block|product-grid-item|grid-product|"
