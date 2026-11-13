@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - New Excel report with 11 sheets: Dashboard (KPI cards, native issue-distribution and severity charts, top priorities, audit
   completeness), Action Plan (one task per fix, with Owner, Status drop-down, Target Date and Notes for you to fill in), Issue
