@@ -3,9 +3,9 @@
 ## 0.5.0
 
 - New dashboard: a filter bar shared by every tab (URL, folder, status, indexable, severity, issue, theme, page type, click
-  depth, words, sitemap, and any column with contains / equals / greater than / is empty), and 7 tabs: Overview, Action
+  depth, words, sitemap, and any column with contains / equals / greater than / is empty), and 8 tabs: Overview, Action
   plan, Issues, Pages (Page audit, On-page, Technical, Images and speed, Schema and social, All columns), Links, Canonicals
-  and parameters, Coverage and site health. The tables are the Excel report's own.
+  and parameters, Coverage and site health, Site map. The tables are the Excel report's own.
 - Every table downloads as CSV or Excel, and "Filtered report" builds the 11-sheet workbook for the filtered pages only.
 - A Site map tab shows the interactive site architecture map in the dashboard, with a Download PNG button that saves the
   whole map (link map or folder tree) as a sharp image. Map files get the same button.
