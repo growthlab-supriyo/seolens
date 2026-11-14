@@ -24,7 +24,7 @@ dependencies = [
     "openpyxl>=3.1,<4",
     "lxml>=5",  # openpyxl writes large reports several times faster with it
     "pandas>=2,<4",
-    "streamlit>=1.40,<2",
+    "streamlit>=1.45,<2",
 ]
 
 [project.optional-dependencies]

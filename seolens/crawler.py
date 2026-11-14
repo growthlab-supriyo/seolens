@@ -502,6 +502,7 @@ class Crawler:
         t0 = time.time()
         ch = self.fetcher.chain(url)
         took = time.time() - t0
+        ch["took"] = took
         try:
             row, ex = self.analyse(url, ch)
         except Exception as e:  # noqa: BLE001 - one odd page must not stop the audit
@@ -509,6 +510,22 @@ class Crawler:
                         "Redirect Chain": "Script error: %s" % e, "_base_issues": ["Page fetch failed"]},
                        {"links": [], "discovered": [], "images": [], "hreflang": [], "minhash": None, "source": url})
         return idx, url, ch, row, ex, took
+
+    def page_line(self, url, row, access, took=None):
+        """One log line per audited page: status, redirect target or why it couldn't be read."""
+        st = row.get("Final Status", "")
+        first = row.get("Initial Status", "")
+        if access != "OK":
+            icon, what = "⛔", "%s (%s)" % (access, st) if st not in ("", None) and str(st) not in access else access
+        elif st == "Error":
+            icon, what = "⛔", "Error: " + str(row.get("Redirect Chain", "") or "didn't load")[:120]
+        elif row.get("Redirect Hops"):
+            icon, what = "↪", "%s → %s %s" % (first, st, row.get("Final URL", ""))
+        else:
+            icon, what = ("✓" if st == 200 else "⚠"), str(st)
+        n = len(self.done)
+        return "%s Page %d/%d · %s · %s%s" % (icon, n, min(len(self.queue), self.s["max_pages"]), what, url,
+                                              " · %.1f s" % took if took else "")
 
     def keep(self, idx, url, ch, row, ex, access, follow):
         row["Crawl Access"] = access
@@ -526,6 +543,7 @@ class Crawler:
                     self.discovery["crawl"] += 1
         if idx == 0 and len(self.queue) == 1 and self.scope and follow:
             self.widen_scope(ex)
+        self.report({"log": self.page_line(url, row, access, ch.get("took") if isinstance(ch, dict) else None)})
 
     def crawl(self):
         limit = lambda: min(len(self.queue), self.s["max_pages"])  # noqa: E731
@@ -671,7 +689,11 @@ class Crawler:
         fixed = 0
         for n, k in enumerate(todo):
             self.check_stop()
+            before = self.rows[k].get("Final Status")
             idx, url, ch, row, ex, took = self.fetch_one(self.page_idx[k], self.rows[k]["URL"])
+            now = ch["chain"][-1][0] if ch["chain"] and not ch["error"] else "Error"
+            self.report({"log": "%s Recheck %d/%d · %s → %s · %s" % ("✓" if isinstance(now, int) and now < 500 else "⚠", n + 1, len(todo),
+                                                                   before, now, url)})
             if ch["chain"] and ch["chain"][-1][0] < 500 and not ch["error"]:
                 first = self.rows[k]["Final Status"]
                 row["Crawl Access"] = "OK"

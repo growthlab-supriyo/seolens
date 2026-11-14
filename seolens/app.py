@@ -199,8 +199,12 @@ def live_view(run_id):
     phase = {"discovering": "Reading robots.txt and the sitemap", "crawling": "Crawling", "checking": "Checking links and images",
              "site": "Site Health checks", "scoring": "Scoring pages", "summary": "Writing the report"}.get(p.get("phase"), "Starting")
     st.progress(min(1.0, done / total) if total else 0.0, text="%s · %d / %d pages" % (phase, done, total))
+    if p.get("step") and p.get("phase") != "crawling":
+        st.caption("Now: " + p["step"])
     if p.get("phase") == "checking" and p.get("check_total"):
-        st.progress(min(1.0, (p.get("check_done") or 0) / p["check_total"]), text="Checking %d / %d link targets and images" % (p.get("check_done") or 0, p["check_total"]))
+        st.progress(min(1.0, (p.get("check_done") or 0) / p["check_total"]),
+                    text="%s · %d / %d" % ("Rechecking busy links" if str(p.get("step", "")).startswith("Rechecking") else
+                                           "Checking link targets and images", p.get("check_done") or 0, p["check_total"]))
     c = st.columns(5)
     c[0].metric("Crawled", f"{done:,}")
     c[1].metric("Discovered", f"{p.get('discovered', 0):,}")
@@ -215,8 +219,9 @@ def live_view(run_id):
             db.update_run(run_id, control="finish")
     elif run["control"]:
         b[0].info("Pausing…" if run["control"] == "pause" else "Finishing…")
-    with st.expander("Log", expanded=True):
-        st.code("\n".join("%s  %s" % (fmt_time(t, "%H:%M:%S"), m) for t, m in db.logs(run_id, 12)) or "…", language=None)
+    with st.expander("Log (newest first: every page, link check and step)", expanded=True):
+        lines = db.logs(run_id, 300)
+        st.code("\n".join("%s  %s" % (fmt_time(t, "%H:%M:%S"), m) for t, m in reversed(lines)) or "…", language=None, height=420)
 
 
 @st.cache_data(max_entries=4)

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The log shows every step: one line per crawled page (status, redirect, block reason), per link and image check, per
+  recheck, and a start/finish line with the time taken for each stage after the crawl. The app shows the newest 300 lines
+  and what it is doing now, with a progress bar while busy links are rechecked.
+- Rechecking links stops early when a site keeps answering 'too many requests' (10 in a row): the rest are listed as
+  'Couldn't verify' instead of keeping the audit waiting.
+
 ## 0.4.0
 
 - Nine advanced checks, inside the existing 11 sheets (no new tabs):

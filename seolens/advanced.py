@@ -81,8 +81,9 @@ def similarity(a, b):
 
 
 class Advanced:
-    def __init__(self, crawler, post, site):
+    def __init__(self, crawler, post, site, report=None):
         self.c, self.post, self.site = crawler, post, site
+        self.report = report or (lambda st: None)
         self.rows, self.ex = crawler.rows, crawler.extras
         self.s = crawler.s
         self.sitemap_keys = site.get("sitemap_keys") or set()
@@ -106,8 +107,11 @@ class Advanced:
         return norm(self.final(r)) in self.sitemap_keys or norm(r["URL"]) in self.sitemap_keys
 
     def run(self):
-        for step in (self.url_structure, self.main_content, self.parameters, self.canonical_clusters, self.pagination,
-                     self.indexability_conflicts, self.rendering, self.anchor_distribution):
+        for step, label in ((self.url_structure, "URL structure"), (self.main_content, "Main content by page type"),
+                            (self.parameters, "URL parameters"), (self.canonical_clusters, "Canonical clusters"),
+                            (self.pagination, "Pagination"), (self.indexability_conflicts, "Indexability conflicts"),
+                            (self.rendering, "JavaScript rendering comparison"), (self.anchor_distribution, "Internal anchor text")):
+            self.report({"phase": "site", "step": "Advanced checks: " + label, "log": "   · " + label})
             step()
         return self.out
 
@@ -532,5 +536,5 @@ class Advanced:
                       "Low", "In body text, link with words that describe the target page; give icon and image links an alt or aria-label.")
 
 
-def run_advanced(crawler, post, site):
-    return Advanced(crawler, post, site).run()
+def run_advanced(crawler, post, site, report=None):
+    return Advanced(crawler, post, site, report).run()

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .advanced import run_advanced
 from .checks import PostChecks
+from .crux import add_crux
 from .crawler import Crawler, Paused, Stopped  # noqa: F401 - re-exported
 from .report import write_site_map
 from .workbook import write_report
@@ -46,6 +47,24 @@ def report_tz(s):
     return timezone(timedelta(minutes=-off)) if isinstance(off, (int, float)) else None
 
 
+class _Step:
+    """Logs '▶ name' when a stage starts and '✓ name (12 s)' when it ends, and shows it as the current step."""
+
+    def __init__(self, report, phase, name, detail=""):
+        self.report, self.phase, self.name, self.detail = report, phase, name, detail
+
+    def __enter__(self):
+        import time
+        self.t = time.time()
+        self.report({"phase": self.phase, "step": self.name, "log": "▶ " + self.name + (": " + self.detail if self.detail else "")})
+        return self
+
+    def __exit__(self, kind, *_):
+        import time
+        if kind is None:
+            self.report({"log": "✓ %s (%.0f s)" % (self.name, time.time() - self.t)})
+
+
 def run_audit(settings, report=lambda st: None, stop=None, store=None, run_id=None, resume=False):
     """Returns {"xlsx", "map", "overall", "pages"}; raises Paused / Stopped / ValueError."""
     s = dict(DEFAULT_SETTINGS, **settings)
@@ -58,23 +77,26 @@ def run_audit(settings, report=lambda st: None, stop=None, store=None, run_id=No
         raise ValueError("No pages were found to audit.")
     if store:
         store.update_run(run_id, status="finishing")
+    report({"log": "Crawl finished: %d pages audited. Now checking links, images and the whole site" % len(crawler.rows)})
     post = PostChecks(crawler, report, stop)
-    post.run_requests()
+    with _Step(report, "checking", "Link targets and images"):
+        post.run_requests()
     if stop.is_set():
         raise Stopped()
-    report({"phase": "site", "step": "Site Health", "log": "Running Site Health"})
-    site = run_site_health(crawler, report)
-    post.analyze_links(site)
-    post.cross_page()
-    report({"phase": "site", "step": "Advanced checks", "log": "Checking parameters, canonical clusters, indexability conflicts, "
-                                                              "pagination and anchors"})
-    post.advanced = run_advanced(crawler, post, site)
+    with _Step(report, "site", "Site Health", "robots.txt, sitemap, HTTPS, www and the site-wide checks"):
+        site = run_site_health(crawler, report)
+    with _Step(report, "site", "Internal links", "link graph, click depth, orphan pages, Link Score, broken links"):
+        post.analyze_links(site)
+    with _Step(report, "site", "Cross-page checks", "canonical and hreflang targets, duplicates, near-duplicates"):
+        post.cross_page()
+    with _Step(report, "site", "Advanced checks"):
+        post.advanced = run_advanced(crawler, post, site, report)
     crux_key = s.get("crux_key") or os.environ.get("SEOLENS_CRUX_KEY", "")
     if crux_key:
-        from .crux import add_crux
-        add_crux(crawler, post, site, crux_key, report, stop)
-    report({"phase": "scoring", "log": "Scoring pages and finding duplicates"})
-    post.scores()
+        with _Step(report, "checking", "Core Web Vitals (CrUX)"):
+            add_crux(crawler, post, site, crux_key, report, stop)
+    with _Step(report, "scoring", "Scoring pages", "duplicates, page scores, health score"):
+        post.scores()
     finished = datetime.now(tz)
     out = Path(s["out_dir"])
     out.mkdir(parents=True, exist_ok=True)
@@ -82,14 +104,16 @@ def run_audit(settings, report=lambda st: None, stop=None, store=None, run_id=No
         ("-" + crawler.scope.strip("/").replace("/", "-") if crawler.scope else "") + \
         ("-list" if s["mode"] == "list" else "") + finished.strftime("_%Y-%m-%d_%H%M") + ("_run%d" % run_id if run_id else "")
     xlsx = str(out / (name + ".xlsx"))
-    report({"phase": "summary", "log": "Writing the Excel report"})
-    overall = write_report(xlsx, crawler, post, site, started, finished, None)
+    with _Step(report, "summary", "Writing the Excel report", "11 sheets + raw data"):
+        overall = write_report(xlsx, crawler, post, site, started, finished, None)
     map_path = str(out / (name + " - Site Architecture Map.html"))
-    if not write_site_map(map_path, crawler, post):
-        map_path = None
+    with _Step(report, "summary", "Drawing the site architecture map"):
+        if not write_site_map(map_path, crawler, post):
+            map_path = None
     if store:
         # The final rows (scores, duplicates, click depth, Link Score) go back into the database for the dashboard.
-        store.save_pages_rows(run_id, list(zip(crawler.page_idx, crawler.rows)))
+        with _Step(report, "summary", "Saving the results for the dashboard"):
+            store.save_pages_rows(run_id, list(zip(crawler.page_idx, crawler.rows)))
     checks = site["checks"] + post.checks
     result = {"xlsx": xlsx, "map": map_path, "overall": overall, "pages": len(crawler.rows),
               "checks": [c for c in checks if c["status"] in ("Fail", "Warn")],

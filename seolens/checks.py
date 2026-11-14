@@ -133,13 +133,24 @@ class PostChecks:
             return job, out
 
         done = 0
+        kinds = {"int": "internal link", "ext": "external link", "img": "image size"}
+
+        def outcome(out):
+            if "e" in out:
+                return "⛔", "Error: " + str(out["e"])[:100]
+            if "s" in out:
+                return "✓", fmt_bytes(out["s"])
+            c = out.get("c", 0)
+            return ("✓" if c < 300 else "↪" if c < 400 else "⚠"), str(c) + (" → " + out["l"] if out.get("l") else "")
 
         def record(job, out):
             nonlocal done
             self.res[job[0] + "|" + norm(job[1])] = out
             done += 1
-            if done % 10 == 0 or done == total:
-                self.report({"phase": "checking", "check_done": done, "check_total": total})
+            icon, what = outcome(out)
+            self.report({"phase": "checking", "check_done": done, "check_total": total,
+                         "step": "Checking link targets and images (%d of %d)" % (done, total),
+                         "log": "%s Check %d/%d · %s · %s · %s" % (icon, done, total, kinds[job[0]], what, job[1])})
 
         # The audited site's own links go at the crawl's polite speed (same server); other sites and images 10 at a time.
         own = [j for j in jobs if j[0] == "int"]
@@ -160,14 +171,28 @@ class PostChecks:
         # A busy server (5xx, 429) is asked once more after a pause, one at a time, before a link is called broken.
         retry = [(k, u) for k, u in jobs if k in ("int", "ext") and (lambda r: r and (r.get("c", 0) >= 500 or r.get("c") == 429))(self.res.get(k + "|" + norm(u)))]
         if retry:
-            self.report({"log": "Rechecking %d link/s that answered with a server error or 'too many requests'" % len(retry)})
+            self.report({"phase": "checking", "check_done": 0, "check_total": len(retry),
+                         "step": "Rechecking busy links (0 of %d)" % len(retry),
+                         "log": "Rechecking %d link/s that answered with a server error or 'too many requests', one at a time" % len(retry)})
             time.sleep(3)
-            for job in retry:
+            still_429 = 0
+            for n, job in enumerate(retry, 1):
                 if self.stop.is_set():
                     return
                 _, out = one(job)
                 self.res[job[0] + "|" + norm(job[1])] = out
+                icon, what = outcome(out)
+                self.report({"phase": "checking", "check_done": n, "check_total": len(retry),
+                             "step": "Rechecking busy links (%d of %d)" % (n, len(retry)),
+                             "log": "%s Recheck %d/%d · %s · %s · %s" % (icon, n, len(retry), kinds[job[0]], what, job[1])})
+                # A site that keeps answering 429 won't answer the rest either: don't make the audit wait for nothing.
+                still_429 = still_429 + 1 if out.get("c") == 429 else 0
+                if still_429 >= 10 and n < len(retry):
+                    self.report({"log": "The site is still answering 'too many requests' (10 in a row): the other %d link/s are "
+                                        "listed as 'Couldn't verify' instead of broken" % (len(retry) - n)})
+                    break
                 time.sleep(0.5)
+            self.report({"log": "Link checks done"})
 
     # ---------------------------------------------------------------- links, depth, orphans, Link Score, heavy images
 
