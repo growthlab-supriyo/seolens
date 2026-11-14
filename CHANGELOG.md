@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
 - New dashboard: a filter bar shared by every tab (URL, folder, status, indexable, severity, issue, theme, page type, click
   depth, words, sitemap, and any column with contains / equals / greater than / is empty), and 7 tabs: Overview, Action
