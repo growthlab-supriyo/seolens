@@ -1,0 +1,45 @@
+# Generated from seolens/theme.py (tests/test_theme.py keeps them in sync)
+
+[theme]
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+baseRadius = "0.5rem"
+buttonRadius = "0.5rem"
+showWidgetBorder = true
+showSidebarBorder = true
+
+[theme.light]
+primaryColor = "#3b46f1"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f6f7f9"
+textColor = "#111318"
+borderColor = "#e5e7eb"
+linkColor = "#3b46f1"
+codeBackgroundColor = "#f6f7f9"
+dataframeHeaderBackgroundColor = "#fafafb"
+redColor = "#dc2626"
+orangeColor = "#ea580c"
+yellowColor = "#d97706"
+blueColor = "#2563eb"
+greenColor = "#16a34a"
+violetColor = "#3b46f1"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+chartCategoricalColors = ["#3b46f1", "#16a34a", "#d97706", "#dc2626", "#0891b2", "#9333ea", "#64748b"]
+
+[theme.dark]
+primaryColor = "#22d3ee"
+backgroundColor = "#0b1020"
+secondaryBackgroundColor = "#121a33"
+textColor = "#e8ecff"
+borderColor = "#223058"
+linkColor = "#7dd3fc"
+codeBackgroundColor = "#0f1730"
+dataframeHeaderBackgroundColor = "#0f1730"
+redColor = "#ff4d6d"
+orangeColor = "#ff9f43"
+yellowColor = "#facc15"
+blueColor = "#60a5fa"
+greenColor = "#34d399"
+violetColor = "#a855f7"
+headingFont = "Space Grotesk:https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap"
+codeFont = "JetBrains Mono:https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+chartCategoricalColors = ["#22d3ee", "#a855f7", "#facc15", "#ff4d6d", "#34d399", "#ff9f43", "#8c96bd"]

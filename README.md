@@ -47,7 +47,7 @@ seolens
 | Performance signals | Heavy images, render-blocking scripts, third-party scripts, page weight |
 | Advanced technical | URL parameters (tracking links, duplicate variants, private values hidden), canonical clusters, indexability conflicts with evidence, pagination, URL structure, main-content vs total words, internal anchor distribution, and (installed version) raw HTML vs JavaScript-rendered comparison of tags, words, schema and internal links |
 
-**Dashboard tabs:** Overview (health score, crawled-pages breakdown, errors, warnings and notices, thematic scores, top issues, click depth), Issues, All pages (filter and export CSV), Response codes, Blocked & failed, Broken links and Site health. The **Excel report** has 11 sheets: a Dashboard (KPI cards, issue-distribution and severity charts, top priorities, audit completeness), an Action Plan to assign and track fixes, Issue Details (one row per URL per rule), Page Audit, On-Page SEO, Technical SEO, Internal Links, Images & Speed, Schema & Social, Crawl Coverage and Raw & Audit Info, plus hidden raw-data sheets.
+**Dashboard:** a filter bar that applies to every tab (URL, folder, status, indexable, severity, issue, theme, page type, click depth, word count, sitemap, plus a filter on any column), then Overview, Action plan, Issues, Pages, Links, Canonicals and parameters, Coverage and site health, and Site map (the interactive architecture map, downloadable as PNG). The tables are the Excel report's own tables. Every table downloads as CSV or Excel, and **Filtered report** builds the full workbook for just the filtered pages. Two themes: Clean Pro (light) and Midnight (dark). The **Excel report** has 11 sheets: a Dashboard (KPI cards, issue-distribution and severity charts, top priorities, audit completeness), an Action Plan to assign and track fixes, Issue Details (one row per URL per rule), Page Audit, On-Page SEO, Technical SEO, Internal Links, Images & Speed, Schema & Social, Crawl Coverage and Raw & Audit Info, plus hidden raw-data sheets.
 
 ## Fast, and polite
 
@@ -102,7 +102,8 @@ The tests run a small local website with redirects, a 404, a slow page, a rate-l
 | `seolens/report.py` | Page columns, health score and the site architecture map |
 | `seolens/store.py` | SQLite (WAL) |
 | `seolens/worker.py` | Runs the crawl in its own process |
-| `seolens/app.py`, `overview.py` | Streamlit dashboard |
+| `seolens/app.py`, `dashboard.py`, `theme.py` | Streamlit app: filters, the 7 dashboard tabs, exports, the Clean Pro and Midnight themes |
+| `seolens/snapshot.py` | Saves what each report is built from, for the dashboard and filtered reports |
 
 **Online version:** `streamlit_app.py` runs SEO Lens in online mode (`SEOLENS_ONLINE=1`: 500 URLs per crawl, no JavaScript rendering,
 robots.txt always respected, no login fields) on Streamlit Community Cloud. `deploy/docker/Dockerfile` runs the same online version in Docker.

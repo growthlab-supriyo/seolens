@@ -114,6 +114,8 @@ def run_audit(settings, report=lambda st: None, stop=None, store=None, run_id=No
         # The final rows (scores, duplicates, click depth, Link Score) go back into the database for the dashboard.
         with _Step(report, "summary", "Saving the results for the dashboard"):
             store.save_pages_rows(run_id, list(zip(crawler.page_idx, crawler.rows)))
+            from .snapshot import capture
+            store.save_snapshot(run_id, capture(crawler, post, site, started, finished))
     checks = site["checks"] + post.checks
     result = {"xlsx": xlsx, "map": map_path, "overall": overall, "pages": len(crawler.rows),
               "checks": [c for c in checks if c["status"] in ("Fail", "Warn")],

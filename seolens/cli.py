@@ -24,8 +24,9 @@ def _app(port, host="localhost", browser=True):
         print("Listening on %s:%d: other devices on this network can open it (there is no login)." % (host, port), flush=True)
     if browser:
         threading.Timer(3.0, lambda: webbrowser.open(url)).start()
+    from .theme import flags
     sys.argv = ["streamlit", "run", app, "--server.port", str(port), "--server.headless", "true",
-                "--browser.gatherUsageStats", "false", "--server.address", host]
+                "--browser.gatherUsageStats", "false", "--server.address", host] + flags()
     sys.exit(stcli.main())
 
 

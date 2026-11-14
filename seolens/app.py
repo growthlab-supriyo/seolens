@@ -1,28 +1,29 @@
 """SEO Lens: the Streamlit app. It only starts crawls and reads the database; the crawl itself runs in worker.py."""
+import hashlib
+import hmac
+import json
 import os
+import secrets
 import sys
 import time
-from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
 if __package__ in (None, ""):  # `streamlit run seolens/app.py` from a source checkout
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pandas as pd
 import streamlit as st
 
 from seolens import MAX_URLS, ONLINE_MAX_URLS, __version__
-from seolens.store import Store
+from seolens.store import HOME, Store
 from seolens.worker import pid_alive, start_worker
 
 ONLINE = os.environ.get("SEOLENS_ONLINE") == "1"   # the shared online version: smaller crawls, no secrets, no JS rendering
 LIVE = ("queued", "running", "finishing")
 STATUS_ICON = {"queued": "⏳", "running": "🕷️", "finishing": "🧮", "done": "✅", "paused": "⏸", "stopped": "⏹",
                "failed": "❌", "interrupted": "⚠️"}
-KEY_COLUMNS = ["URL", "Final Status", "Crawl Access", "Indexable", "Meta Title", "Title Length", "Meta Description",
-               "Description Length", "H1 Text", "Word Count", "Canonical URL", "Click Depth", "Link Score (0-100)",
-               "Linked From (pages)", "Page Score", "Issues"]
+REPO_URL = "https://github.com/growthlab-supriyo/seolens"
+THEMES = {"Clean Pro": "Light", "Midnight": "Dark"}   # app theme → Streamlit's stored light/dark choice
 
 st.set_page_config(page_title="SEO Lens", page_icon="🔎", layout="wide")
 
@@ -64,11 +65,74 @@ def check_alive(run):
     return run
 
 
+@st.cache_resource
+def link_secret():
+    """Signs the private crawl links of the online version. Kept with the crawls, so links stop working when they're deleted."""
+    path = HOME / "link.secret"
+    try:
+        return path.read_bytes()
+    except OSError:
+        key = secrets.token_bytes(32)
+        HOME.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(key)
+        return key
+
+
+def link_key(rid):
+    return hmac.new(link_secret(), str(rid).encode(), hashlib.sha256).hexdigest()[:20]
+
+
+def remember(rid):
+    """The open crawl goes into the address (with its private key online), so a reload or a bookmark opens it again."""
+    st.session_state.run = rid
+    params = {"run": str(rid)}
+    if ONLINE:
+        params["key"] = link_key(rid)
+        if rid not in st.session_state.setdefault("my_runs", []):
+            st.session_state.my_runs.append(rid)
+    if dict(st.query_params) != params:
+        st.query_params.from_dict(params)
+
+
+def open_from_address():
+    q = st.query_params
+    try:
+        rid = int(q.get("run", ""))
+    except ValueError:
+        return
+    if ONLINE and not hmac.compare_digest(q.get("key", ""), link_key(rid)):
+        return
+    if "run" not in st.session_state and db.run(rid):
+        if ONLINE:
+            st.session_state.setdefault("my_runs", []).append(rid)
+        st.session_state.run = rid
+
+
+def theme_switch():
+    """Clean Pro (light) or Midnight (dark). Streamlit sets a theme only in the browser, so the choice is saved there and
+    the page reloads once; the open crawl stays open because it is in the address."""
+    try:
+        now = "Midnight" if st.context.theme.type == "dark" else "Clean Pro"
+    except Exception:  # noqa: BLE001 - not known yet on the very first run
+        now = "Clean Pro"
+    want = st.session_state.pop("theme_reload", None)
+    if want is None:
+        st.session_state.theme_pick = now
+    st.segmented_control("Theme", list(THEMES), key="theme_pick", width="stretch",
+                         on_change=lambda: st.session_state.update(theme_reload=st.session_state.theme_pick))
+    if want and want != now:
+        st.html("<script>try{localStorage.setItem('stActiveTheme-'+window.location.pathname+'-v2',%s)}catch(e){}"
+                "window.location.reload()</script>" % json.dumps(json.dumps(THEMES[want])), unsafe_allow_javascript=True)
+
+
+open_from_address()
+
 # ---------------------------------------------------------------- sidebar: new crawl + history
 
 with st.sidebar:
-    st.title("🔎 SEO Lens")
+    st.markdown("## 🔎 [SEO Lens](%s)" % REPO_URL)
     st.caption("Free, open-source SEO crawler · v%s" % __version__)
+    theme_switch()
     # Outside the form, so choosing "List of URLs" shows the URL box at once.
     mode = st.radio("What to crawl", ["Website or folder", "List of URLs"], horizontal=True)
     with st.form("new"):
@@ -143,8 +207,7 @@ with st.sidebar:
             rid = db.create_run(settings)
             # Online: the key goes only to the crawler process's memory, never into the database.
             db.update_run(rid, pid=start_worker(rid, crux_key=crux_key.strip() if ONLINE else ""))
-            st.session_state.run = rid
-            st.session_state.setdefault("my_runs", []).append(rid)
+            remember(rid)
             st.rerun()
 
     st.divider()
@@ -154,8 +217,9 @@ with st.sidebar:
     if history:
         ids = [r["id"] for r in history]
         cur = st.session_state.get("run", ids[0])
-        st.session_state.run = st.radio("Crawls", ids, index=ids.index(cur) if cur in ids else 0,
-                                        format_func=lambda i: run_label(next(r for r in history if r["id"] == i)))
+        pick = st.radio("Crawls", ids, index=ids.index(cur) if cur in ids else 0,
+                        format_func=lambda i: run_label(next(r for r in history if r["id"] == i)))
+        remember(pick)
     if ONLINE:
         st.info("Online version: up to %d URLs per crawl. For 10,000-URL crawls and JavaScript rendering, install it free "
                 "on your computer: `pipx install seolens`" % ONLINE_MAX_URLS)
@@ -224,22 +288,6 @@ def live_view(run_id):
         st.code("\n".join("%s  %s" % (fmt_time(t, "%H:%M:%S"), m) for t, m in reversed(lines)) or "…", language=None, height=420)
 
 
-@st.cache_data(max_entries=4)
-def pages_frame(run_id, updated):
-    rows = db.page_rows(run_id)
-    df = pd.DataFrame(rows)
-    from seolens.report import HIDDEN_COLUMNS
-    df = df.drop(columns=[c for c in df.columns if c.startswith("_") or c in HIDDEN_COLUMNS], errors="ignore")
-    for col in df.columns:  # mixed columns (numbers and "" or text): numbers where they all are, else text
-        if df[col].dtype == object:
-            filled = df[col].map(lambda v: v not in ("", None))
-            nums = pd.to_numeric(df[col].where(filled), errors="coerce")
-            df[col] = nums if nums.notna().sum() == filled.sum() and filled.any() else df[col].map(
-                lambda v: "" if v is None else v if isinstance(v, str) else str(v))
-    blank = lambda v: v in ("", None) or (isinstance(v, str) and v.startswith("N/A")) or (isinstance(v, float) and v != v)  # noqa: E731
-    return df[[c for c in df.columns if c == "URL" or not df[c].map(blank).all()]]  # columns that don't apply are left out
-
-
 run = check_alive(db.run(rid))
 shown = "running" if run["status"] in LIVE else run["status"]  # the header isn't redrawn while the live panel updates
 st.subheader("%s %s" % (STATUS_ICON.get(shown, ""), run["target"]))
@@ -269,105 +317,12 @@ if run["status"] == "failed":
         with st.expander("Technical details"):
             st.code(run["error"])
 
-df = pages_frame(rid, run["updated"])
-res = run["result"]
-if df.empty:
-    st.stop()
-
-# ---------------------------------------------------------------- results
-
-from seolens.overview import column_of
-status = pd.to_numeric(column_of(df, "Final Status"), errors="coerce")
-access = df.get("Crawl Access", pd.Series(["OK"] * len(df))).fillna("OK")
-c = st.columns(6)
-c[0].metric("Health score", "%s / 100" % res["overall"] if res.get("overall") is not None else "–")
-c[1].metric("Pages", f"{len(df):,}")
-c[2].metric("Indexable", int((df.get("Indexable") == "Yes").sum()) if "Indexable" in df else 0)
-c[3].metric("4xx", int(((status >= 400) & (status < 500)).sum()))
-c[4].metric("5xx", int((status >= 500).sum()))
-c[5].metric("Blocked / not readable", int((access != "OK").sum()))
-
-if res.get("xlsx") and Path(res["xlsx"]).exists():
-    d = st.columns([1, 1, 4])
-    d[0].download_button("⬇ Excel report", Path(res["xlsx"]).read_bytes(), Path(res["xlsx"]).name, type="primary")
-    if res.get("map") and Path(res["map"]).exists():
-        d[1].download_button("⬇ Site architecture map", Path(res["map"]).read_bytes(), Path(res["map"]).name, mime="text/html")
-elif run["status"] != "done":
-    st.caption("The Excel report is written when the crawl finishes.")
-
-tabs = st.tabs(["Overview", "Issues", "All pages", "Response codes", "Blocked & failed", "Broken links", "Site health"])
-
-with tabs[0]:
-    from seolens.overview import overview
-    overview(df, res, access)
-tabs = tabs[1:]
-
-with tabs[0]:
-    counts = Counter(i.strip() for v in df.get("Issues", pd.Series(dtype=str)).fillna("") for i in str(v).split(";") if i.strip())
-    if counts:
-        from seolens.checks import fix_text, priority
-        idf = pd.DataFrame([{"Issue": k, "Priority": priority(k), "Pages": n, "How to fix": fix_text(k)} for k, n in counts.items()])
-        idf["_r"] = idf["Priority"].map({"Critical": 0, "High": 1, "Medium": 2, "Low": 3})
-        idf = idf.sort_values(["_r", "Pages"], ascending=[True, False]).drop(columns="_r")
-        pick = st.selectbox("Show the pages with this issue", ["–"] + list(idf["Issue"]))
-        if pick != "–":
-            hit = df[column_of(df, "Issues").fillna("").astype(str).str.contains(pick, regex=False)]
-            st.dataframe(hit[[c for c in KEY_COLUMNS if c in hit]], width="stretch", hide_index=True)
-        st.dataframe(idf, width="stretch", hide_index=True)
-    else:
-        st.write("No page issues found (the issue list is built when the crawl finishes).")
-
-with tabs[1]:
-    f = st.columns([3, 1, 1])
-    q = f[0].text_input("Filter URLs", placeholder="/blog/")
-    only_idx = f[1].selectbox("Indexable", ["All", "Yes", "No"])
-    cols = f[2].multiselect("Columns", list(df.columns), [c for c in KEY_COLUMNS if c in df.columns])
-    view = df
-    if q:
-        view = view[view["URL"].str.contains(q, case=False, regex=False)]
-    if only_idx == "Yes":
-        view = view[view["Indexable"] == "Yes"]
-    elif only_idx == "No":
-        view = view[view["Indexable"] != "Yes"]
-    st.caption("%d pages" % len(view))
-    st.dataframe(view[cols or ["URL"]], width="stretch", hide_index=True, height=520)
-    st.download_button("⬇ CSV (this view)", view[cols or ["URL"]].to_csv(index=False).encode("utf-8-sig"), "pages.csv", "text/csv")
-
-with tabs[2]:
-    codes = column_of(df, "Final Status").astype(str).value_counts().rename_axis("Status").reset_index(name="Pages")
-    st.dataframe(codes, hide_index=True)
-    redir = df[pd.to_numeric(df.get("Redirect Hops"), errors="coerce").fillna(0) > 0] if "Redirect Hops" in df else df.iloc[0:0]
-    if len(redir):
-        st.markdown("**Redirects**")
-        st.dataframe(redir[[c for c in ("URL", "Redirect Hops", "Redirect Chain", "Final URL", "Final Status") if c in redir]],
-                     width="stretch", hide_index=True)
-
-with tabs[3]:
-    bad = df[access != "OK"]
-    st.markdown("Pages the crawler **couldn't read**. They are not counted as broken pages: the site refused them, or didn't answer. "
-                "SEO Lens doesn't try to get around a firewall. For a site you own, allow its User-Agent "
-                "(`SEOLens`) in Cloudflare (WAF → custom rule → skip) or in your firewall, then crawl again.")
-    if len(bad):
-        st.dataframe(bad[[c for c in ("URL", "Final Status", "Crawl Access", "Redirect Chain") if c in bad]], width="stretch", hide_index=True)
-    else:
-        st.success("Every crawled page could be read.")
-
-with tabs[4]:
-    if res.get("broken"):
-        st.dataframe(pd.DataFrame(res["broken"], columns=["Found on page", "Pages", "Link URL", "Anchor", "Where", "Type", "Status", "Result", "How to fix"]),
-                     width="stretch", hide_index=True)
-    else:
-        st.write("No broken or redirecting links found." if run["status"] == "done" else "Built when the crawl finishes.")
-
-with tabs[5]:
-    if res.get("checks"):
-        st.dataframe(pd.DataFrame(res["checks"])[["status", "priority", "category", "check", "result", "fix"]],
-                     width="stretch", hide_index=True)
-    else:
-        st.write("All site-wide checks passed." if run["status"] == "done" else "Built when the crawl finishes.")
+from seolens.dashboard import render
+render(db, run, rid)
 
 with st.expander("Danger zone"):
     if st.button("Delete this crawl", help="Removes it from the database (the Excel files stay in the reports folder)."):
         db.delete_run(rid)
         st.session_state.pop("run", None)
+        st.query_params.clear()
         st.rerun()

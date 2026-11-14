@@ -230,6 +230,8 @@ def build_model(crawler, post, site, started, finished, ai_out=None):
         audit_type = "Folder %s/%s" % (crawler.scope, " (with the site-wide checks)" if site["site_wide"] else "")
     else:
         audit_type = "Whole website"
+    if getattr(crawler, "filter_note", ""):
+        audit_type += " · " + crawler.filter_note
     return Model(host=host, run_id=str(getattr(crawler, "run_id", None) or "local"), mode=s["mode"], scope=crawler.scope,
                  audit_type=audit_type, started=started, finished=finished, settings=s, rows=rows, extras=crawler.extras,
                  queue=crawler.queue, access=dict(zip(getattr(crawler, "page_idx", range(len(rows))), getattr(crawler, "access", ["OK"] * len(rows)))),

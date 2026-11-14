@@ -509,5 +509,13 @@ def write_site_map(path, crawler, post):
     data = {"nodes": [{"u": x["u"], "p": x["path"], "d": x["d"], "inl": x["inl"], "sc": x["sc"], "o": x["o"], "ix": x["ix"], "c": 0} for x in keep],
             "links": links, "tree": tree(root), "total": len(all_), "host": (parse_url(all_[0]["u"]) or {}).get("host", "")}
     tpl = open(os.path.join(os.path.dirname(__file__), "data", "site_map.html"), encoding="utf-8").read()
-    open(path, "w", encoding="utf-8").write(tpl.replace("/*__DATA__*/null", json.dumps(data)))
+    open(path, "w", encoding="utf-8").write(with_png_button(tpl.replace("/*__DATA__*/null", json.dumps(data))))
     return True
+
+
+def with_png_button(html):
+    """Adds the 'Download PNG' button (also to maps saved by older versions, when the app shows them)."""
+    if 'id="pngBtn"' in html or "pngBtn" in html:
+        return html
+    js = open(os.path.join(os.path.dirname(__file__), "data", "site_map_png.js"), encoding="utf-8").read()
+    return html.replace("</body>", js + "</body>", 1) if "</body>" in html else html + js

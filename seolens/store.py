@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS pages (
 CREATE TABLE IF NOT EXISTS log (
     run_id INTEGER, ts REAL, msg TEXT
 );
+CREATE TABLE IF NOT EXISTS snap (
+    run_id INTEGER PRIMARY KEY, data TEXT   -- everything the report is built from (snapshot.py), for the app and filtered reports
+);
 CREATE INDEX IF NOT EXISTS log_run ON log (run_id, ts);
 CREATE INDEX IF NOT EXISTS pages_access ON pages (run_id, access);
 """
@@ -101,7 +104,7 @@ class Store:
         return r[0] if r else ""
 
     def delete_run(self, run_id):
-        for t in ("queue", "pages", "log"):
+        for t in ("queue", "pages", "log", "snap"):
             self.db.execute("DELETE FROM %s WHERE run_id=?" % t, (run_id,))
         self.db.execute("DELETE FROM runs WHERE id=?", (run_id,))
         self.db.commit()
@@ -124,6 +127,14 @@ class Store:
         self.db.executemany("UPDATE pages SET row=? WHERE run_id=? AND idx=?",
                             [(_json(r), run_id, i) for i, r in rows_by_idx])
         self.db.commit()
+
+    def save_snapshot(self, run_id, data):
+        self.db.execute("INSERT OR REPLACE INTO snap (run_id, data) VALUES (?,?)", (run_id, _json(data)))
+        self.db.commit()
+
+    def snapshot(self, run_id):
+        r = self.db.execute("SELECT data FROM snap WHERE run_id=?", (run_id,)).fetchone()
+        return json.loads(r[0]) if r else None
 
     def commit(self):
         self.db.commit()

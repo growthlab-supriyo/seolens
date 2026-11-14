@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- New dashboard: a filter bar shared by every tab (URL, folder, status, indexable, severity, issue, theme, page type, click
+  depth, words, sitemap, and any column with contains / equals / greater than / is empty), and 7 tabs: Overview, Action
+  plan, Issues, Pages (Page audit, On-page, Technical, Images and speed, Schema and social, All columns), Links, Canonicals
+  and parameters, Coverage and site health. The tables are the Excel report's own.
+- Every table downloads as CSV or Excel, and "Filtered report" builds the 11-sheet workbook for the filtered pages only.
+- A Site map tab shows the interactive site architecture map in the dashboard, with a Download PNG button that saves the
+  whole map (link map or folder tree) as a sharp image. Map files get the same button.
+- Two themes, Clean Pro and Midnight, with a switch in the sidebar (the first visit follows the device's setting).
+- Severity is Critical / High / Medium / Low everywhere (no more Errors / Warnings / Notices in the app).
+- "SEO Lens" links to the GitHub project in the app and on the Excel dashboard.
+- The open crawl is kept in the page address, so a reload or a bookmark opens it again (online: a private link).
 - The log shows every step: one line per crawled page (status, redirect, block reason), per link and image check, per
   recheck, and a start/finish line with the time taken for each stage after the crawl. The app shows the newest 300 lines
   and what it is doing now, with a progress bar while busy links are rechecked.

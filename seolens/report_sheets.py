@@ -6,6 +6,7 @@
 
 Every sheet: title (row 1), subtitle (2), website · date · run · scope (4), filterable table header (6), records from 7.
 """
+import contextvars
 import re
 from collections import Counter, defaultdict
 
@@ -73,6 +74,37 @@ def _top_issue(row, keep=lambda rule: True):
     return best, priority(best)
 
 
+# The app shows the same tables as the workbook: collect_tables() runs the sheet code with _table() recording each table's
+# headers and rows instead of writing them (a context variable, so app sessions in other threads are not affected).
+_SINK = contextvars.ContextVar("seolens_table_sink", default=None)
+
+
+def _table(ws, name, headers, rows, widths, top=6, **kw):
+    sink = _SINK.get()
+    if sink is None:
+        return add_table(ws, name, headers, rows, widths, top=top, **kw)
+    sink[name] = (list(headers), [list(r) for r in rows])
+    for c, h in enumerate(headers, 1):
+        ws.cell(row=top, column=c, value=h)
+    return top + 1, top + max(1, len(rows))
+
+
+def collect_tables(m):
+    """{table name: (headers, rows)} for every table of sheets 02-11, from a model (report_data.build_model)."""
+    sink = {}
+    token = _SINK.set(sink)
+    try:
+        wb = Workbook()
+        plan_rows = _action_plan(wb, m)
+        _issue_details(wb, m, plan_rows)
+        for f in (_page_audit, _on_page, _technical, _internal_links, _images_speed, _schema_social, _crawl_coverage):
+            f(wb, m)
+        _raw_and_info(wb, m, validate(m), None, raw=False)
+    finally:
+        _SINK.reset(token)
+    return sink
+
+
 def write_workbook(path, crawler, post, site, started, finished, ai_out=None):
     m = build_model(crawler, post, site, started, finished, ai_out)
     wb = Workbook()
@@ -102,7 +134,7 @@ def _action_plan(wb, m):
                                    "sheet 03 (click the Task ID).", _meta(m))
     data = [[t.task_id, t.priority, t.severity, t.rule, t.fix_scope, t.affected if t.affected else "Site-wide", t.owner, t.status,
              t.fix, t.verification, t.effort, "", ""] for t in m.tasks]
-    first, last = add_table(ws, "ActionPlan", ["Task ID", "Priority", "Severity", "Issue", "Fix Scope", "Affected URLs", "Owner", "Status",
+    first, last = _table(ws, "ActionPlan", ["Task ID", "Priority", "Severity", "Issue", "Fix Scope", "Affected URLs", "Owner", "Status",
                                                "Recommended Fix", "Verification", "Effort", "Target Date", "Notes"],
                             data, [12, 9, 10, 34, 26, 10, 14, 13, 55, 13, 9, 12, 30], wrap=(4, 5, 9, 13),
                             empty_note="No issues found: nothing to fix.")
@@ -129,7 +161,7 @@ def _issue_details(wb, m, plan_rows):
     issues = sorted(m.issues, key=lambda i: (order.get(i.task_id, 0), i.url))
     data = [[i.issue_id, i.rule, i.severity, i.scope, i.url, _clean(i.evidence), i.expected, i.fix, i.task_id, i.verification,
              i.category] for i in issues]
-    first, last = add_table(ws, "IssueDetails", ["Issue ID", "Rule", "Severity", "Scope", "URL", "Evidence", "Expected Result",
+    first, last = _table(ws, "IssueDetails", ["Issue ID", "Rule", "Severity", "Scope", "URL", "Evidence", "Expected Result",
                                                  "Suggested Fix", "Task ID", "Verification Status", "Category"],
                             data, [13, 32, 10, 8, 55, 55, 34, 50, 11, 14, 20], wrap=(6, 7, 8), empty_note="No issues found.")
     first_issue = {}
@@ -161,14 +193,14 @@ def _page_audit(wb, m):
     for r in m.rows:
         issue, _sev = _top_issue(r)
         crit = (r.get("Critical") or 0) + (r.get("High") or 0)
-        data.append([r["URL"], page_type(r), r.get("Final Status", ""), _clean(r.get("Indexable", "")), r.get("Page Score", ""),
+        data.append([r["URL"], r.get("Content Type") or page_type(r), r.get("Final Status", ""), _clean(r.get("Indexable", "")), r.get("Page Score", ""),
                      _clean(r.get("Meta Title", "")), _clean(r.get("Meta Description", "")), _clean(r.get("H1 Text", "")),
                      r.get("Word Count", "") if isinstance(r.get("Word Count"), int) else "", _clean(r.get("Canonical URL", "")),
                      issue or "Nothing to fix", crit, r.get("Medium") or 0, r.get("Low") or 0,
                      (r.get("Click Depth") if isinstance(r.get("Click Depth"), int) else _clean(r.get("Click Depth", ""))) if m.link_graph else NOT_MEASURED,
                      inlinks(r) if m.link_graph else NOT_MEASURED, _int(r.get("URL Depth")), _clean(r.get("URL Parameters", "")) or "None",
                      _render_status(r)])
-    first, last = add_table(ws, "PageAudit", ["URL", "Page Type", "HTTP Status", "Indexable", "Page Score", "Title", "Meta Description", "H1",
+    first, last = _table(ws, "PageAudit", ["URL", "Page Type", "HTTP Status", "Indexable", "Page Score", "Title", "Meta Description", "H1",
                                               "Main Content Words", "Canonical", "Action Needed", "Critical + High", "Medium", "Low",
                                               "Click Depth", "Inlinks", "URL Depth (folders)", "URL Parameters", "JS Rendering"],
                             data, [55, 16, 8, 22, 8, 45, 50, 35, 9, 45, 34, 9, 8, 8, 9, 8, 9, 22, 13], wrap=(6, 7, 11))
@@ -183,7 +215,7 @@ def _page_audit(wb, m):
 
 
 def _url_links(ws, first, n, rows, col=1):
-    if n <= LINK_LIMIT:
+    if n <= LINK_LIMIT and _SINK.get() is None:
         for k, r in enumerate(rows):
             ws.cell(row=first + k, column=col).hyperlink = r["URL"]
 
@@ -222,7 +254,7 @@ def _on_page(wb, m):
                      _int(r.get("Total Words")), _int(r.get("Word Count")), _int(r.get("Boilerplate Words")),
                      _clean(r.get("Content Extraction", "")), _clean(r.get("Content Flag", "")), "; ".join(dup),
                      ("%s: %s" % (issue, fix_text(issue))) if issue else "Nothing to change"])
-    first, last = add_table(ws, "OnPage", ["URL", "Page Type", "Title", "Title Length (characters)", "Meta Description",
+    first, last = _table(ws, "OnPage", ["URL", "Page Type", "Title", "Title Length (characters)", "Meta Description",
                                            "Meta Length (characters)", "H1", "Total Words", "Main Content Words", "Boilerplate Words",
                                            "Extraction Method", "Content Flag", "Duplicate Group", "Suggested Edit"],
                             data, [55, 18, 45, 11, 55, 11, 38, 9, 9, 10, 30, 34, 30, 60], wrap=(3, 5, 7, 11, 12, 14),
@@ -260,7 +292,7 @@ def _technical(wb, m):
                      _clean(r.get("Canonical Cluster", "")), _clean(r.get("Indexability Conflicts", "")) or "None",
                      _clean(r.get("Pagination", "")), diffs, issue or "None",
                      priority(issue) if issue else "", fix_text(issue) if issue else ""])
-    first, last = add_table(ws, "Technical", ["URL", "HTTP Status", "Indexable", "Meta Robots", "Canonical", "Redirect Hops / Chain",
+    first, last = _table(ws, "Technical", ["URL", "HTTP Status", "Indexable", "Meta Robots", "Canonical", "Redirect Hops / Chain",
                                               "In Sitemap", "URL Parameters", "Canonical Cluster", "Indexability Conflicts", "Pagination",
                                               "JS Rendering Differences", "Technical Issue", "Severity", "Suggested Fix"],
                             data, [55, 11, 24, 30, 50, 40, 12, 22, 34, 50, 40, 50, 32, 10, 55], wrap=(4, 5, 6, 9, 10, 11, 12, 15))
@@ -273,7 +305,7 @@ def _technical(wb, m):
     top = last + 3
     put(ws, top - 1, 1, "Canonical clusters: pages that declare another page as canonical, grouped by the canonical they resolve to. "
                         "Pages that only point to themselves are left out.").font = Font(name=FONT, bold=True, size=11)
-    first, last = add_table(ws, "CanonicalClusters", ["Cluster ID", "Source URL", "Declared Canonical", "Resolved Canonical", "Cluster Size",
+    first, last = _table(ws, "CanonicalClusters", ["Cluster ID", "Source URL", "Declared Canonical", "Resolved Canonical", "Cluster Size",
                                                       "HTTP Status", "Indexability", "Content Similarity", "Conflict Type"],
                             adv.get("clusters", []), [], top=top, wrap=(9,),
                             empty_note="No canonical clusters: every page with a canonical points to itself.")
@@ -285,7 +317,7 @@ def _technical(wb, m):
     put(ws, top - 1, 1, "URL parameters: URLs with ?parameters found in internal links, the sitemap or the crawl. Private-looking values "
                         "(sessions, tokens, emails) are hidden." + ("" if crawled else " Parameter URLs were not crawled in this audit, so "
                                                                    "their content is not measured.")).font = Font(name=FONT, bold=True, size=11)
-    add_table(ws, "ParameterURLs", ["URL", "Clean URL", "Parameters", "Parameter Count", "Found Via", "Crawl Status", "Canonical",
+    _table(ws, "ParameterURLs", ["URL", "Clean URL", "Parameters", "Parameter Count", "Found Via", "Crawl Status", "Canonical",
                                     "Indexability", "Finding"],
               adv.get("params", []), [], top=top, wrap=(1, 5, 6, 9), empty_note="No URLs with ?parameters were found.")
     finish_sheet(ws, 5, freeze="B7")
@@ -356,7 +388,7 @@ def _internal_links(wb, m):
     for label, src, dest, anchor in adv.get("render_links", []):
         st, depth, n_in = target_info(dest)
         data.append([label, src, dest, anchor, "", st, depth, n_in, actions[label][0], actions[label][1]])
-    first, last = add_table(ws, "InternalLinks", ["Edge Type", "Source URL", "Destination URL", "Anchor Text", "Follow", "Target Status",
+    first, last = _table(ws, "InternalLinks", ["Edge Type", "Source URL", "Destination URL", "Anchor Text", "Follow", "Target Status",
                                                   "Click Depth", "Inlinks", "Issue", "Recommended Action"],
                             data, [26, 50, 50, 28, 12, 20, 10, 8, 30, 55], wrap=(9, 10), empty_note="No links were found.")
     colour_prefix(ws, 9, first, last, {"Broken": "FDE2E2", "Redirect": "FEF6C7", "Orphan": "FEF6C7", "Deep": "FEF6C7",
@@ -407,7 +439,7 @@ def _images_speed(wb, m):
                                          "CLS %s" % r["CLS"] if r.get("CLS") not in (None, "") else "") if x)
             data.append([r["URL"], "", "", "", "", "", "", cwv_src, "Core Web Vitals: %s (%s)" % (cwv, vals),
                          "" if cwv == "Good" else "Improve the worst metric: LCP (hero image, server), INP (less JavaScript), CLS (reserve space)"])
-    first, last = add_table(ws, "ImagesSpeed", ["Page URL", "Image URL", "Alt Text", "Image Size (KB)", "Measured?", "Format", "Loading",
+    first, last = _table(ws, "ImagesSpeed", ["Page URL", "Image URL", "Alt Text", "Image Size (KB)", "Measured?", "Format", "Loading",
                                                 "CWV Source", "Issue", "Fix"],
                             data, [50, 60, 10, 11, 10, 8, 12, 22, 36, 55], wrap=(9, 10),
                             empty_note="No images over 200 KB or without alt text were found.")
@@ -445,7 +477,7 @@ def _schema_social(wb, m):
                      _clean(r.get("Twitter Card", "")) or "Missing",
                      ("Template" if any(x in template for x in rules) else "Page") if rules else "",
                      "; ".join("%s: %s" % (x, fix_text(x)) for x in rules)])
-    first, last = add_table(ws, "SchemaSocial", ["URL", "Schema Types", "Parse Status", "Missing Properties", "OG Title", "OG Image",
+    first, last = _table(ws, "SchemaSocial", ["URL", "Schema Types", "Parse Status", "Missing Properties", "OG Title", "OG Image",
                                                  "Twitter Card", "Fix Scope", "Recommendation"],
                             data, [55, 40, 14, 40, 10, 10, 18, 10, 60], wrap=(2, 4, 9), empty_note="No HTML pages were audited.")
     colour_values(ws, 5, first, last, {"Missing": "FEF6C7"})
@@ -462,7 +494,7 @@ def _crawl_coverage(wb, m):
                                       "source that found it first; percentages only where the total is known.", _meta(m))
     data = [[c[0]] + [NOT_MEASURED if v is None else v for v in c[1:4]] + [NOT_MEASURED if c[4] is None else c[4], c[5], c[6]]
             for c in m.coverage]
-    first, last = add_table(ws, "CrawlCoverage", ["Discovery Source", "Discovered", "Audited", "Not Audited", "Coverage %", "Reason",
+    first, last = _table(ws, "CrawlCoverage", ["Discovery Source", "Discovered", "Audited", "Not Audited", "Coverage %", "Reason",
                                                   "Next Step"],
                             data, [34, 12, 12, 12, 11, 60, 45], wrap=(6, 7))
     for r in range(first, last + 1):
@@ -473,7 +505,7 @@ def _crawl_coverage(wb, m):
 
 # ---------------------------------------------------------------- 11 Raw & Audit Info + hidden raw sheets
 
-def _raw_and_info(wb, m, problems, ai_out):
+def _raw_and_info(wb, m, problems, ai_out, raw=True):
     ws = wb.create_sheet("11 Raw & Audit Info")
     title_block(ws, "Raw & Audit Info", "How this audit was run, the rules behind the numbers, and where the full raw data is.", _meta(m))
     s, c = m.settings, m.crawler
@@ -522,9 +554,11 @@ def _raw_and_info(wb, m, problems, ai_out):
     ]
     if ai_out:
         info.append(("AI suggestions", "%d rows" % len(ai_out.get("rows", [])), "", "AI assistant"))
-    first, last = add_table(ws, "AuditInfo", ["Setting", "Value", "Notes", "Source"], info, [24, 60, 70, 16], wrap=(2, 3))
+    first, last = _table(ws, "AuditInfo", ["Setting", "Value", "Notes", "Source"], info, [24, 60, 70, 16], wrap=(2, 3))
     finish_sheet(ws, 10)
 
+    if not raw:
+        return
     _raw_sheet(wb, "__Raw Pages", "RawPages", [c_ for c_ in COLUMNS if c_ not in HIDDEN_COLUMNS],
                [[_clean(r.get(c_, "")) for c_ in COLUMNS if c_ not in HIDDEN_COLUMNS] for r in m.rows])
     _raw_sheet(wb, "__Raw Links", "RawLinks", ["Found On Page", "Pages", "Link URL", "Anchor Text", "Where", "Type", "Status", "Result",

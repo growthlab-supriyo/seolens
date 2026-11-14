@@ -12,6 +12,7 @@ from .report_style import (BOX, DARK_GREEN, FONT, GREEN, INK, LIGHT_BG, MUTED, N
                            PALE_PURPLE, PRIORITY_PALE, SEVERITY, fill, finish_sheet, put)
 
 SCHEMA_RULES = {"No structured data", "Structured data has errors", "Structured data missing key properties"}
+REPO_URL = "https://github.com/growthlab-supriyo/seolens"
 CARD_FILLS = [PALE_GREEN, PALE_BLUE, PALE_PURPLE, PALE_ORANGE, PALE_BLUE, PALE_GREEN]
 
 
@@ -46,7 +47,11 @@ def add_dashboard(wb, m):
     ws.column_dimensions["T"].width = 3
 
     # Title and run details
-    _merge_text(ws, "B2:I3", "SEO Lens  |  SEO Audit Dashboard", Font(name=FONT, size=20, bold=True, color=DARK_GREEN),
+    # "SEO Lens" links to the project on GitHub; a link covers a whole cell, so it has a cell of its own.
+    cell = _merge_text(ws, "B2:C3", "SEO Lens", Font(name=FONT, size=20, bold=True, color=DARK_GREEN, underline="single"),
+                       align=Alignment(vertical="center"))
+    cell.hyperlink = REPO_URL
+    _merge_text(ws, "D2:I3", "|  SEO Audit Dashboard", Font(name=FONT, size=20, bold=True, color=DARK_GREEN),
                 align=Alignment(vertical="center"))
     when = m.finished.strftime("%d %b %Y, %H:%M")
     _merge_text(ws, "J2:S3", "%s\n%s · %s · run %s" % (m.host or "URL list", when, m.audit_type, m.run_id),
